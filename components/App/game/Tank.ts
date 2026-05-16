@@ -237,12 +237,12 @@ export class Tank {
     this.turret.enableManualTransform(turretMatrix);
 
     // BARREL PITCH (Smoothed)
-    const maxDepress = 0.25; 
-    const maxElevate = 0.5;
-    const targetPitch = Math.max(-maxElevate, Math.min(maxDepress, aimPitch));
+    const maxDepress = -0.15; 
+    const maxElevate = 0.45;
+    const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
     this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 6.0 * (ts / 1000));
     
-    const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
+    const pitchQ = Quaternion.createFromEuler(0, this.barrelPitch, 0, 'YXZ');
 
     const barrelRecoilVis = this.shellRecoil > 0 ? this.shellRecoil * 0.8 : 0;
     const barrelPivotMatrix = UT.MAT4_MULTIPLY(turretMatrix, UT.MAT4_TRANSLATE(0, 0.1, -1.2 + barrelRecoilVis));

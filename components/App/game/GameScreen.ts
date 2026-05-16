@@ -189,7 +189,7 @@ export class GameScreen extends Screen {
     if (inputManager.isPointerLockCaptured()) {
         const sensitivity = 0.003;
         this.cameraYaw -= data.movementX * sensitivity;
-        this.cameraPitch = Math.max(0.1, Math.min(1.2, this.cameraPitch + data.movementY * sensitivity));
+        this.cameraPitch = Math.max(-0.8, Math.min(0.4, this.cameraPitch - data.movementY * sensitivity));
         this.lastMouseManualTS = Date.now();
     }
   };
