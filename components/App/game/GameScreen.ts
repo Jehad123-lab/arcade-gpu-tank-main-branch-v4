@@ -222,7 +222,7 @@ export class GameScreen extends Screen {
     if (Date.now() - this.lastMouseManualTS > 1000) {
         let rotDiff = ((this.tank.rotation - this.cameraYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
         if (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-        this.cameraYaw += rotDiff * 4.0 * (ts / 1000); 
+        this.cameraYaw += rotDiff * 6.0 * (ts / 1000); 
     }
   }
 
