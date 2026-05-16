@@ -283,7 +283,7 @@ export class GameScreen extends Screen {
     const idealOffset = rotQ.rotateVector([0, 0, this.cameraDistance]);
     const idealPos: vec3 = [
         playerPos[0] + idealOffset[0],
-        playerPos[1] + 4.0 + idealOffset[1], 
+        playerPos[1] + 3.5 + idealOffset[1], 
         playerPos[2] + idealOffset[2]
     ];
     
@@ -293,14 +293,14 @@ export class GameScreen extends Screen {
     }
     
     // Position smoothing
-    const camAlpha = 1.0 - Math.exp(-8.0 * (ts / 1000));
+    const camAlpha = 1.0 - Math.exp(-6.0 * (ts / 1000));
     this.cameraPos = UT.VEC3_LERP(this.cameraPos, idealPos, camAlpha);
     
-    // Look Target smoothing
-    const noseOffset = rotQ.rotateVector([0, 0, -2.0]);
+    // Look Target smoothing - Look slightly above the tank for better visibility
+    const noseOffset = rotQ.rotateVector([0, 0, -3.0]);
     const lookGoal: vec3 = [
         playerPos[0] + noseOffset[0],
-        playerPos[1] + 2.0 + (idealOffset[1] * 0.2), // Adjust look target height based on camera height
+        playerPos[1] + 1.8 + (idealOffset[1] * 0.15), 
         playerPos[2] + noseOffset[2]
     ];
     const lookAlpha = 1.0 - Math.exp(-15.0 * (ts / 1000));

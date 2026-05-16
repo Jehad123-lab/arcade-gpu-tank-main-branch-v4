@@ -226,7 +226,7 @@ export class Tank {
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
     // Heavier traverse feel
-    const turretTraverseSpeed = 6.0;
+    const turretTraverseSpeed = 3.5;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);
@@ -235,14 +235,14 @@ export class Tank {
     const turretPivotMatrix = UT.MAT4_MULTIPLY(bodyMatrix, UT.MAT4_TRANSLATE(0, 0.85, 0));
     const turretMatrix = UT.MAT4_MULTIPLY(turretPivotMatrix, localYawQ.toMatrix4());
     this.turret.enableManualTransform(turretMatrix);
-
+ 
     // BARREL PITCH (Smoothed)
     const maxDepress = -0.15; 
-    const maxElevate = 0.45;
+    const maxElevate = 0.5;
     const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
-    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 8.0 * (ts / 1000));
+    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 4.5 * (ts / 1000));
     
-    const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
+    const pitchQ = Quaternion.createFromEuler(0, this.barrelPitch, 0, 'YXZ');
 
     const barrelRecoilVis = this.shellRecoil > 0 ? this.shellRecoil * 0.8 : 0;
     const barrelPivotMatrix = UT.MAT4_MULTIPLY(turretMatrix, UT.MAT4_TRANSLATE(0, 0.1, -1.2 + barrelRecoilVis));
