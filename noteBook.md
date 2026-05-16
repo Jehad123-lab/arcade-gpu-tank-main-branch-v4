@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-16 11:00]**: Disabled camera auto-follow logic to allow for full manual camera control. Corrected inverted barrel pitch application and slowed down turret/barrel traverse speeds (3.0 for barrel, 2.5 for turret) for a heavier, more realistic movement feel.
 -   **[2026-05-16 10:55]**: Fixed inverted barrel pitch rotation. Corrected pitch application in `Tank.ts` to ensure mouse-up elevates the barrel and mouse-down depresses it.
 -   **[2026-05-16 10:50]**: Fixed barrel inversion. Realigned mesh offsets to negative Z-axis (standard mesh forward) while maintaining positive Z as the world movement forward. Corrected player throttle mapping to fix W/S inversion (W=Forward).
 -   **[2026-05-16 10:45]**: Fixed tank tilting and collision issues. Implemented a "Spring Torque" stabilization system to pull physics bodies upright smoothly without jitter. Lowered the tank's center of mass (mCenterOfMassOffset) and increased collision volume height (1.2m) to prevent clipping into the ground. Standardized visual banking to be more conservative.
