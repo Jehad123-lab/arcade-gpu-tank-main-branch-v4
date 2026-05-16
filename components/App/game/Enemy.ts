@@ -133,7 +133,7 @@ export class Enemy {
     const fRight = qRot.rotateVector([0.7, 0, -1.0]);
     
     const rayDist = 12.0;
-    const lRay = gfx3JoltManager.createRay(pos.GetX(), castStartY, pos.GetY() < 0 ? 0 : pos.GetZ(), pos.GetX() + fLeft[0] * rayDist, castStartY, pos.GetZ() + fLeft[2] * rayDist);
+    const lRay = gfx3JoltManager.createRay(pos.GetX(), castStartY, pos.GetZ(), pos.GetX() + fLeft[0] * rayDist, castStartY, pos.GetZ() + fLeft[2] * rayDist);
     const rRay = gfx3JoltManager.createRay(pos.GetX(), castStartY, pos.GetZ(), pos.GetX() + fRight[0] * rayDist, castStartY, pos.GetZ() + fRight[2] * rayDist);
     
     const lHit = lRay.fraction < 1.0 && lRay.fraction > 0.15;
@@ -215,9 +215,12 @@ export class Enemy {
 
     let turretYawDiff = ((targetAngle - this.turretYaw) % PI2 + PI2) % PI2;
     if (turretYawDiff > Math.PI) turretYawDiff -= Math.PI * 2;
-    this.turretYaw += Math.sign(turretYawDiff) * Math.min(Math.abs(turretYawDiff), 3.5 * (ts / 1000));
+    
+    // Smooth weighted turret traverse
+    const traverseAlpha = 1.0 - Math.exp(-4.5 * (ts / 1000));
+    this.turretYaw += turretYawDiff * traverseAlpha;
 
-    if (dist < 40 && Math.abs(turretYawDiff) < 0.3 && Math.abs(bodyYawDiff) < 1.0 && this.shootCooldown <= 0) {
+    if (dist < 40 && Math.abs(turretYawDiff) < 0.25 && Math.abs(bodyYawDiff) < 1.0 && this.shootCooldown <= 0) {
         const muzzleData = this.getMuzzleData(this.visualQuat);
         muzzlePos = muzzleData.muzzlePos;
         dir = muzzleData.dir;

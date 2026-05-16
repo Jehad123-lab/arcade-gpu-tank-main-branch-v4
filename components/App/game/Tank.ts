@@ -30,6 +30,8 @@ export class Tank {
   shellRecoil: number = 0;
   grenadeRecoil: number = 0;
   turretYaw: number = 0;
+  barrelPitch: number = 0;
+  chassisTilt: number = 0;
   wasFiringInternal: boolean = false;
   currentUp: vec3 = [0, 1, 0];
   hp: number = 100;
@@ -145,7 +147,12 @@ export class Tank {
     const currentYaw = Math.atan2(-currentForward[0], -currentForward[2]);
     
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
-    const tiltErrorX = -currentUpVec[2]; 
+    
+    // 2. CHASSIS TILT (Acceleration feedback)
+    const targetTilt = (throttle !== 0 ? -throttle * 1.5 : 0) * (Math.PI / 180);
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 5.0 * (ts / 1000));
+    
+    const tiltErrorX = -currentUpVec[2] + this.chassisTilt; 
     const tiltErrorZ = currentUpVec[0];  
 
     let bodyYawDiff = ((this.rotation - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
@@ -214,11 +221,12 @@ export class Tank {
     syncRigid(this.trackR, [1.425, -0.15, 0]);
     syncRigid(this.engine, [0, 0.3, 1.8]);
 
-    // 2. INDEPENDENT TURRET (Aligns to aimYaw)
+    // 3. INDEPENDENT TURRET (Aligns to aimYaw)
     let yawDiff = ((aimYaw - this.turretYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
-    const turretTraverseSpeed = 10.0;
+    // Heavier traverse feel
+    const turretTraverseSpeed = 4.0;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);
@@ -228,11 +236,13 @@ export class Tank {
     const turretMatrix = UT.MAT4_MULTIPLY(turretPivotMatrix, localYawQ.toMatrix4());
     this.turret.enableManualTransform(turretMatrix);
 
-    // BARREL PITCH
+    // BARREL PITCH (Smoothed)
     const maxDepress = 0.25; 
-    const maxElevate = 0.4;
-    const clampedPitch = Math.max(-maxElevate, Math.min(maxDepress, aimPitch));
-    const pitchQ = Quaternion.createFromEuler(0, -clampedPitch, 0, 'YXZ');
+    const maxElevate = 0.5;
+    const targetPitch = Math.max(-maxElevate, Math.min(maxDepress, aimPitch));
+    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 6.0 * (ts / 1000));
+    
+    const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
 
     const barrelRecoilVis = this.shellRecoil > 0 ? this.shellRecoil * 0.8 : 0;
     const barrelPivotMatrix = UT.MAT4_MULTIPLY(turretMatrix, UT.MAT4_TRANSLATE(0, 0.1, -1.2 + barrelRecoilVis));
