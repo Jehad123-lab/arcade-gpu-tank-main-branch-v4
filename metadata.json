@@ -1,0 +1,6 @@
+{
+  "name": "Arcade Tank Storm",
+  "description": "A high-octane 3D tank combat game with physics-based movement and AI enemies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
