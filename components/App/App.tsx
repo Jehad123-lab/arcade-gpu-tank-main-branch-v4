@@ -338,9 +338,9 @@ const App = () => {
                         }}>
                             <div style={{ fontSize: '10px', fontFamily: Tokens.fonts.body, letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'left', marginBottom: '8px' }}>Control Schema</div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>MOVE</span><span>WASD / ARROWS</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>AIM</span><span>MOUSE</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>LOOK / AIM</span><span>MOUSE</span></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>FIRE</span><span>L-CLICK / SPACE</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>GRENADE</span><span>R-CLICK / G</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: Tokens.fonts.data }}><span>GRENADE</span><span>R-CLICK / SHIFT / G</span></div>
                         </div>
                     )}
                     
@@ -393,16 +393,20 @@ const App = () => {
                 pointerEvents: 'none',
             }}>
                 <div style={{
-                    width: '24px',
-                    height: '24px',
-                    border: `1px solid ${Tokens.colors.content}`,
+                    width: '40px',
+                    height: '40px',
+                    border: `1px solid ${Tokens.colors.contentDim}`,
                     borderRadius: '2px',
-                    opacity: 0.3,
+                    position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                 }}>
-                    <div style={{ width: '2px', height: '2px', backgroundColor: Tokens.colors.content }} />
+                    <div style={{ position: 'absolute', top: '-10px', left: '50%', width: '1px', height: '6px', background: Tokens.colors.accent }} />
+                    <div style={{ position: 'absolute', bottom: '-10px', left: '50%', width: '1px', height: '6px', background: Tokens.colors.accent }} />
+                    <div style={{ position: 'absolute', left: '-10px', top: '50%', width: '6px', height: '1px', background: Tokens.colors.accent }} />
+                    <div style={{ position: 'absolute', right: '-10px', top: '50%', width: '6px', height: '1px', background: Tokens.colors.accent }} />
+                    <div style={{ width: '4px', height: '4px', backgroundColor: Tokens.colors.content, borderRadius: '100%' }} />
                 </div>
             </div>
 

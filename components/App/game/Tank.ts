@@ -100,9 +100,9 @@ export class Tank {
    * Updates physics and syncs mesh transforms.
    */
   update(ts: number, moveDir: { x: number, y: number }, fireNormal: boolean, fireGrenade: boolean, aimYaw: number = 0, aimPitch: number = 0): { normal: boolean, grenade: boolean, muzzlePos: vec3, muzzleDir: vec3 } {
-    const moveSpeed = 15;
-    const reverseSpeed = 10;
-    const rotSpeed = 120 * (Math.PI / 180);
+    const moveSpeed = 18;
+    const reverseSpeed = 12;
+    const rotSpeed = 160 * (Math.PI / 180);
 
     let didShootNormal = false;
     let didShootGrenade = false;
@@ -110,13 +110,13 @@ export class Tank {
     if (fireNormal && this.shellRecoil <= 0) {
       this.shellRecoil = 1.0;
       didShootNormal = true;
-      this.recoil = 1.0; // Recoil on fire
+      this.recoil = 1.0; 
     }
 
     if (fireGrenade && this.shellRecoil <= 0 && this.grenadeRecoil <= 0) {
       this.grenadeRecoil = 1.0;
       didShootGrenade = true;
-      this.recoil = 1.5; // Heavier recoil for grenade
+      this.recoil = 1.6; 
     }
 
     this.shellRecoil -= (ts / 1000) * 5; 
@@ -125,67 +125,53 @@ export class Tank {
     this.grenadeRecoil -= (ts / 1000) * 2;
     if (this.grenadeRecoil < 0) this.grenadeRecoil = 0;
     
-    // 1. CHASSIS MOVEMENT (Differential Steering)
-    // Horizontal input rotates chassis
+    // 1. CHASSIS MOVEMENT
     if (moveDir.x !== 0) {
       this.rotation -= moveDir.x * rotSpeed * (ts / 1000); 
     }
 
-    // Vertical input moves forward/back
     const throttle = moveDir.y; 
     const targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
     
-    // Momentum / Acceleration curve
     const isBraking = (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
-    const accelRate = throttle !== 0 ? (isBraking ? -10.0 : -4.0) : -8.0;
+    const accelRate = throttle !== 0 ? (isBraking ? -15.0 : -6.0) : -12.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
     const qPhysics = this.physicsBody.body.GetRotation();
     const currentQuat = new Quaternion(qPhysics.GetW(), qPhysics.GetX(), qPhysics.GetY(), qPhysics.GetZ());
     
-    // Get current yaw from physics
     const currentForward = currentQuat.rotateVector([0, 0, -1]);
     const currentYaw = Math.atan2(-currentForward[0], -currentForward[2]);
     
-    // STABILIZATION: Neutralize Pitch and Roll
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
     const tiltErrorX = -currentUpVec[2]; 
     const tiltErrorZ = currentUpVec[0];  
 
-    // CHASSIS ROTATION (Arcade Snap)
     let bodyYawDiff = ((this.rotation - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (bodyYawDiff > Math.PI) bodyYawDiff -= Math.PI * 2;
-    this.rotation = currentYaw + Math.max(-1.0, Math.min(1.0, bodyYawDiff));
+    this.rotation = currentYaw + Math.max(-0.5, Math.min(0.5, bodyYawDiff));
     
-    const targetAngularVelY = bodyYawDiff * 20.0; 
+    const targetAngularVelY = bodyYawDiff * 25.0; 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(tiltErrorX * 15.0, targetAngularVelY, tiltErrorZ * 15.0)
+        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, targetAngularVelY, tiltErrorZ * 20.0)
     );
 
-    // LINEAR MOVEMENT with DRIFT
     const uprightQuat = Quaternion.createFromEuler(currentYaw, 0, 0, 'YXZ');
     const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]); 
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
     
-    // Drift effect: Turning at high speeds reduces lateral grip
-    const absVel = Math.abs(this.velocity);
-    const turnFactor = Math.abs(moveDir.x);
-    const driftAlpha = 1.0 - Math.exp(-(25.0 - (turnFactor * absVel * 0.5)) * (ts / 1000));
-    
     const targetVelX = forwardVecActual[0] * this.velocity;
     const targetVelZ = forwardVecActual[2] * this.velocity;
-    
-    // Manual Linear Damping (roughly 1.5 per second -> ~0.975 per frame at 60fps)
-    const dampingFactor = Math.pow(0.5, ts / 1000); // Reduce velocity by half every second effectively
+    const dampingFactor = Math.pow(0.1, ts / 1000); 
     
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
         new Gfx3Jolt.Vec3(
-            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, Math.max(0.1, driftAlpha)), 
+            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, 0.5), 
             currentJoltVel.GetY(), 
-            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, Math.max(0.1, driftAlpha))
+            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, 0.5)
         )
     );
 
@@ -232,7 +218,7 @@ export class Tank {
     let yawDiff = ((aimYaw - this.turretYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
-    const turretTraverseSpeed = 6.0;
+    const turretTraverseSpeed = 10.0;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);

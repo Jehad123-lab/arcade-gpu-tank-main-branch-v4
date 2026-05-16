@@ -167,7 +167,7 @@ export class GameScreen extends Screen {
     inputManager.registerAction('keyboard', 'ShiftLeft', 'FIRE_ALT'); 
     inputManager.registerAction('keyboard', 'KeyE', 'FIRE_ALT'); 
 
-    inputManager.setPointerLockEnabled(false);
+    inputManager.setPointerLockEnabled(true);
     eventManager.subscribe(inputManager, 'E_MOUSE_MOVE', this, this.handleMouseMove);
 
     this.camera.setPosition(0, 12, 20); // Start at cy=0 position offset (0, 12, distance)
@@ -185,6 +185,13 @@ export class GameScreen extends Screen {
   handleMouseMove = (data: any) => {
     this.mouseX = data.clientX;
     this.mouseY = data.clientY;
+    
+    if (inputManager.isPointerLockCaptured()) {
+        const sensitivity = 0.003;
+        this.cameraYaw -= data.movementX * sensitivity;
+        this.cameraPitch = Math.max(0.1, Math.min(1.2, this.cameraPitch + data.movementY * sensitivity));
+        this.lastMouseManualTS = Date.now();
+    }
   };
 
   /**
@@ -207,32 +214,15 @@ export class GameScreen extends Screen {
     this.intent.isFiringNormal = this.virtualFireNormal || inputManager.isActiveAction('FIRE') || (inputManager.isMouseDown() && !this.rightClickFire);
     this.intent.isFiringGrenade = this.virtualFireGrenade || this.rightClickFire || inputManager.isActiveAction('FIRE_ALT');
 
-    const tankP = this.tank.physicsBody.body.GetPosition();
-    const playerPos: vec3 = [tankP.GetX(), tankP.GetY(), tankP.GetZ()];
-    const view = this.camera.getView();
-    const nx = (this.mouseX / window.innerWidth) * 2 - 1;
-    const ny = -(this.mouseY / window.innerHeight) * 2 + 1;
-    const invProjView = UT.MAT4_INVERT(view.getViewProjectionClipMatrix());
-    const nearVec = UT.MAT4_MULTIPLY_BY_VEC4(invProjView, new Float32Array([nx, ny, 0.0, 1]));
-    const farVec = UT.MAT4_MULTIPLY_BY_VEC4(invProjView, new Float32Array([nx, ny, 1.0, 1]));
-    
-    if (nearVec[3] !== 0 && farVec[3] !== 0) {
-        const rayOrigin: vec3 = [nearVec[0]/nearVec[3], nearVec[1]/nearVec[3], nearVec[2]/nearVec[3]];
-        const rayFar: vec3 = [farVec[0]/farVec[3], farVec[1]/farVec[3], farVec[2]/farVec[3]];
-        const rayDir = UT.VEC3_NORMALIZE(UT.VEC3_SUBSTRACT(rayFar, rayOrigin));
-        const t = (0.5 - rayOrigin[1]) / rayDir[1];
-        if (t > 0) {
-            const hitPoint = [
-                rayOrigin[0] + rayDir[0] * t,
-                0.5,
-                rayOrigin[2] + rayDir[2] * t
-            ];
-            const dx = hitPoint[0] - playerPos[0];
-            const dz = hitPoint[2] - playerPos[2];
-            this.intent.aimYaw = Math.atan2(-dx, -dz);
-            const dist = Math.sqrt(dx*dx + dz*dz);
-            this.intent.aimPitch = Math.atan2(0.85, dist);
-        }
+    // Aim where the camera is looking (Directly ahead of the player)
+    this.intent.aimYaw = this.cameraYaw;
+    this.intent.aimPitch = this.cameraPitch;
+
+    // Auto-follow logic: If no mouse input for a while, align camera with tank
+    if (Date.now() - this.lastMouseManualTS > 1000) {
+        let rotDiff = ((this.tank.rotation - this.cameraYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        if (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+        this.cameraYaw += rotDiff * 4.0 * (ts / 1000); 
     }
   }
 
@@ -288,28 +278,27 @@ export class GameScreen extends Screen {
         }
     }
 
-    let rotDiff = ((this.tank.rotation - this.cameraYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-    if (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-    this.cameraYaw += rotDiff * 5.0 * (ts / 1000); 
 
     const rotQ = Quaternion.createFromEuler(this.cameraYaw, this.cameraPitch, 0, 'YXZ');
     const idealOffset = rotQ.rotateVector([0, 0, this.cameraDistance]);
     const idealPos: vec3 = [
         playerPos[0] + idealOffset[0],
-        playerPos[1] + 6.0, 
+        playerPos[1] + 5.0, 
         playerPos[2] + idealOffset[2]
     ];
     
-    const camAlpha = 1.0 - Math.exp(-6.0 * (ts / 1000));
+    // Position smoothing
+    const camAlpha = 1.0 - Math.exp(-8.0 * (ts / 1000));
     this.cameraPos = UT.VEC3_LERP(this.cameraPos, idealPos, camAlpha);
     
-    const noseOffset = rotQ.rotateVector([0, 0, -8.0]);
+    // Look Target smoothing
+    const noseOffset = rotQ.rotateVector([0, 0, -5.0]);
     const lookGoal: vec3 = [
         playerPos[0] + noseOffset[0],
-        playerPos[1] + 1.5,
+        playerPos[1] + 1.2,
         playerPos[2] + noseOffset[2]
     ];
-    const lookAlpha = 1.0 - Math.exp(-12.0 * (ts / 1000));
+    const lookAlpha = 1.0 - Math.exp(-15.0 * (ts / 1000));
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, lookGoal, lookAlpha);
     
     const shakeX = (Math.random() - 0.5) * this.shakeIntensity;
