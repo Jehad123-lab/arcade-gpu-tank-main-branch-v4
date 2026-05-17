@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 09:39]**: Implemented classic vehicle steering for the `Tank` and `Enemy` objects where movement inputs (W/S) are relative to the tank's hull orientation instead of the camera, and steering (A/D) directly rotates the hull. Perfected track friction by isolating and heavily damping lateral velocity (drifting) while keeping forward acceleration smooth.
 -   **[2026-05-16 11:05]**: Fully fixed barrel inversion (correct coordinate orientation for the physical barrel mesh offset: using positive pitch angle) and increased traversing speed to be snappy similar to traditional 3rd person tank-shooters so it perfectly tracks the manual mouse camera without auto-follow lock.
 -   **[2026-05-16 11:00]**: Disabled camera auto-follow logic to allow for full manual camera control. Corrected inverted barrel pitch application and slowed down turret/barrel traverse speeds (3.0 for barrel, 2.5 for turret) for a heavier, more realistic movement feel.
 -   **[2026-05-16 10:55]**: Fixed inverted barrel pitch rotation. Corrected pitch application in `Tank.ts` to ensure mouse-up elevates the barrel and mouse-down depresses it.

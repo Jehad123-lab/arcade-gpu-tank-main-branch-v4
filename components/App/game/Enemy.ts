@@ -196,23 +196,21 @@ export class Enemy {
     const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]);
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
     const sideVec = uprightQuat.rotateVector([1, 0, 0]);
-    const currentLateral = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
     
-    // Manual Damping
-    const lateralDamping = Math.pow(0.05, ts / 1000);
-    const targetVelX = forwardVecActual[0] * this.velocity + sideVec[0] * currentLateral * lateralDamping;
-    const targetVelZ = forwardVecActual[2] * this.velocity + sideVec[2] * currentLateral * lateralDamping;
+    const forwardVel = forwardVecActual[0] * currentJoltVel.GetX() + forwardVecActual[2] * currentJoltVel.GetZ();
+    const lateralVel = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
+    
+    // Strong lateral damping
+    const lateralDamping = Math.pow(0.001, ts / 1000);
+    const newLateral = lateralVel * lateralDamping;
+    const newForward = UT.LERP(forwardVel, this.velocity, 1.0 - Math.exp(-12.0 * (ts / 1000)));
 
-    const velAlpha = 1.0 - Math.exp(-12.0 * (ts / 1000));
-    const forwardDamping = Math.pow(0.05, ts / 1000); 
+    const newVelX = forwardVecActual[0] * newForward + sideVec[0] * newLateral;
+    const newVelZ = forwardVecActual[2] * newForward + sideVec[2] * newLateral;
 
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(
-            UT.LERP(currentJoltVel.GetX() * forwardDamping, targetVelX, velAlpha), 
-            currentJoltVel.GetY(), 
-            UT.LERP(currentJoltVel.GetZ() * forwardDamping, targetVelZ, velAlpha)
-        )
+        new Gfx3Jolt.Vec3(newVelX, currentJoltVel.GetY(), newVelZ)
     );
     
     let didShoot = false;

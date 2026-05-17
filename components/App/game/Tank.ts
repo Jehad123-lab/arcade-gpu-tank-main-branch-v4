@@ -128,9 +128,6 @@ export class Tank {
     if (this.grenadeRecoil < 0) this.grenadeRecoil = 0;
     
     // 1. CHASSIS MOVEMENT
-    const moveX = moveDir.x;
-    const moveY = moveDir.y;
-    
     let targetVelocity = 0;
     let targetAngularVelY = 0;
 
@@ -140,35 +137,24 @@ export class Tank {
     const currentYaw = Math.atan2(-currentForward[0], -currentForward[2]);
     this.rotation = currentYaw; // Sync for other reads
 
-    let isDriveInput = moveX !== 0 || moveY !== 0;
-    if (isDriveInput) {
-        const inputYaw = Math.atan2(-moveX, moveY); 
-        let targetYaw = aimYaw + inputYaw;
-        
-        let yawDiff = ((targetYaw - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-        if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        
-        let isReversing = false;
-        // If the target direction is generally behind the tank, reverse instead of turning fully around
-        if (Math.abs(yawDiff) > Math.PI * 0.6) {
-            isReversing = true;
-            targetYaw += Math.PI;
-            yawDiff = ((targetYaw - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-            if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        }
-        
-        targetAngularVelY = yawDiff * 6.0; 
-        targetAngularVelY = Math.max(-rotSpeed, Math.min(rotSpeed, targetAngularVelY));
-        
-        const alignFactor = Math.max(0, 1.0 - Math.abs(yawDiff) / (Math.PI / 3)); 
-        const throttleIntensity = Math.min(1.0, Math.sqrt(moveX * moveX + moveY * moveY));
-        const unconstrainedVel = isReversing ? -reverseSpeed : moveSpeed;
-        
-        targetVelocity = unconstrainedVel * throttleIntensity * (0.2 + 0.8 * alignFactor); 
+    const throttle = moveDir.y;
+    let turnInput = moveDir.x;
+
+    // Invert left/right if reversing so the hull steers as expected
+    if (throttle < 0) {
+        turnInput = -turnInput;
     }
 
-    const isBraking = (isDriveInput && ((targetVelocity > 0 && this.velocity < 0) || (targetVelocity < 0 && this.velocity > 0))) || (!isDriveInput && this.velocity !== 0);
-    const accelRate = isDriveInput ? (isBraking ? -15.0 : -6.0) : -12.0;
+    targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
+    targetAngularVelY = -turnInput * rotSpeed;
+
+    // Neutral steer (turn in place)
+    if (throttle === 0 && turnInput !== 0) {
+        targetAngularVelY = -turnInput * rotSpeed * 0.8;
+    }
+
+    const isBraking = (throttle === 0 && this.velocity !== 0) || (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
+    const accelRate = throttle !== 0 ? (isBraking ? -15.0 : -6.0) : -12.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
@@ -194,20 +180,21 @@ export class Tank {
     const sideVec = uprightQuat.rotateVector([1, 0, 0]);
     
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
-    const currentLateral = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
     
-    const dampingFactor = Math.pow(0.05, ts / 1000); 
+    // Decompose horizontal velocity into lateral and longitudinal
+    const forwardVel = forwardVecActual[0] * currentJoltVel.GetX() + forwardVecActual[2] * currentJoltVel.GetZ();
+    const lateralVel = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
     
-    const targetVelX = forwardVecActual[0] * this.velocity + sideVec[0] * currentLateral * dampingFactor;
-    const targetVelZ = forwardVecActual[2] * this.velocity + sideVec[2] * currentLateral * dampingFactor;
+    const lateralDamping = Math.pow(0.001, ts / 1000); 
+    const newLateral = lateralVel * lateralDamping;
+    const newForward = UT.LERP(forwardVel, this.velocity, 1.0 - Math.exp(-12.0 * (ts / 1000)));
+
+    const newVelX = forwardVecActual[0] * newForward + sideVec[0] * newLateral;
+    const newVelZ = forwardVecActual[2] * newForward + sideVec[2] * newLateral;
     
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(
-            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, 1.0 - Math.exp(-12.0 * (ts / 1000))), 
-            currentJoltVel.GetY(), 
-            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, 1.0 - Math.exp(-12.0 * (ts / 1000)))
-        )
+        new Gfx3Jolt.Vec3(newVelX, currentJoltVel.GetY(), newVelZ)
     );
 
     const pos = this.physicsBody.body.GetPosition();
