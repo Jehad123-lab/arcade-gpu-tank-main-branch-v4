@@ -171,14 +171,16 @@ export class Enemy {
     
     const targetAngularVelY = physYawDiff * 15.0; 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-15.0 * (ts / 1000)));
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-6.0 * (ts / 1000)));
+
+    // Dampen physical bouncy rotation, apply gentle righting force
+    const newAngX = currentAngVel.GetX() * 0.9 + tiltErrorX * 5.0;
+    const newAngZ = currentAngVel.GetZ() * 0.9 + tiltErrorZ * 5.0;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, newAngY, tiltErrorZ * 20.0)
+        new Gfx3Jolt.Vec3(newAngX, newAngY, newAngZ)
     );
-
-    this.visualQuat = currentQuat;
 
     let throttle = 0;
     if (dist > 15) {
@@ -186,6 +188,9 @@ export class Enemy {
     } else if (dist < 10) {
         throttle = -0.5; 
     }
+
+    const tiltQ = Quaternion.createFromEuler(throttle !== 0 ? -Math.sign(throttle) * 1.5 * (Math.PI/180) : 0, 0, 0, 'YXZ');
+    this.visualQuat = currentQuat.mul(tiltQ.w, tiltQ.x, tiltQ.y, tiltQ.z);
 
     const targetVelocity = throttle * speed;
     const isBraking = (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);

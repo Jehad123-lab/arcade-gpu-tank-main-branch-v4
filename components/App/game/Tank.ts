@@ -160,20 +160,25 @@ export class Tank {
 
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
     
-    // 2. CHASSIS TILT (Acceleration feedback)
+    // 2. CHASSIS TILT (Acceleration feedback visual only)
     const targetTilt = (targetVelocity !== 0 ? -Math.sign(targetVelocity) * 2.0 : 0) * (Math.PI / 180);
     this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 3.0 * (ts / 1000));
     
-    const tiltErrorX = -currentUpVec[2] + this.chassisTilt; 
+    // Softly upright the tank to prevent it from flipping over permanently
+    const tiltErrorX = -currentUpVec[2]; 
     const tiltErrorZ = currentUpVec[0];  
 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
     // Use slower interpolation for angular velocity to create heavy rotational momentum
     const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-6.0 * (ts / 1000)));
+    
+    // Dampen physical bouncy rotation, apply gentle righting force
+    const newAngX = currentAngVel.GetX() * 0.9 + tiltErrorX * 5.0;
+    const newAngZ = currentAngVel.GetZ() * 0.9 + tiltErrorZ * 5.0;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, newAngY, tiltErrorZ * 20.0)
+        new Gfx3Jolt.Vec3(newAngX, newAngY, newAngZ)
     );
 
     const uprightQuat = Quaternion.createFromEuler(currentYaw, 0, 0, 'YXZ');
@@ -214,7 +219,10 @@ export class Tank {
     const recoilImpact = this.recoil > 0 ? Math.sin(Date.now() * 0.1) * this.recoil * 0.02 : 0;
     const bodyRecoilOffset = this.recoil > 0 ? this.recoil * -0.2 : 0; // Push back effect
     const recoilQ = Quaternion.createFromEuler(0, recoilImpact, 0, 'YXZ');
-    const finalVisualQ = currentQuat.mul(recoilQ.w, recoilQ.x, recoilQ.y, recoilQ.z);
+    const tiltQ = Quaternion.createFromEuler(this.chassisTilt, 0, 0, 'YXZ');
+    
+    // Apply tilt THEN recoil
+    const finalVisualQ = currentQuat.mul(tiltQ.w, tiltQ.x, tiltQ.y, tiltQ.z).mul(recoilQ.w, recoilQ.x, recoilQ.y, recoilQ.z);
 
     // Apply recoil translation to the matrix
     const recoiledOrigin: vec3 = [
