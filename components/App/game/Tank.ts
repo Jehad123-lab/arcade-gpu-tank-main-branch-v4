@@ -102,9 +102,9 @@ export class Tank {
    * Updates physics and syncs mesh transforms.
    */
   update(ts: number, moveDir: { x: number, y: number }, fireNormal: boolean, fireGrenade: boolean, aimYaw: number = 0, aimPitch: number = 0): { normal: boolean, grenade: boolean, muzzlePos: vec3, muzzleDir: vec3 } {
-    const moveSpeed = 18;
-    const reverseSpeed = 12;
-    const rotSpeed = 240 * (Math.PI / 180);
+    const moveSpeed = 16.0;
+    const reverseSpeed = 8.0;
+    const rotSpeed = 70 * (Math.PI / 180); // 70 deg/sec (much more realistic tank turning speed)
 
     let didShootNormal = false;
     let didShootGrenade = false;
@@ -154,21 +154,22 @@ export class Tank {
     }
 
     const isBraking = (throttle === 0 && this.velocity !== 0) || (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
-    const accelRate = throttle !== 0 ? (isBraking ? -15.0 : -6.0) : -12.0;
+    const accelRate = throttle !== 0 ? (isBraking ? -8.0 : -3.0) : -4.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
     
     // 2. CHASSIS TILT (Acceleration feedback)
-    const targetTilt = (targetVelocity !== 0 ? -Math.sign(targetVelocity) * 1.5 : 0) * (Math.PI / 180);
-    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 5.0 * (ts / 1000));
+    const targetTilt = (targetVelocity !== 0 ? -Math.sign(targetVelocity) * 2.0 : 0) * (Math.PI / 180);
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 3.0 * (ts / 1000));
     
     const tiltErrorX = -currentUpVec[2] + this.chassisTilt; 
     const tiltErrorZ = currentUpVec[0];  
 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-15.0 * (ts / 1000)));
+    // Use slower interpolation for angular velocity to create heavy rotational momentum
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-6.0 * (ts / 1000)));
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 

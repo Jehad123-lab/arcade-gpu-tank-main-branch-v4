@@ -141,9 +141,20 @@ export class GameScreen extends Screen {
     }
   };
 
+  handleGlobalWheel = (e: WheelEvent) => {
+    if (inputManager.isPointerLockCaptured()) {
+       this.cameraDistance += e.deltaY > 0 ? 3.0 : -3.0;
+       this.cameraDistance = Math.max(10, Math.min(60, this.cameraDistance));
+    }
+  };
+
   async onEnter() {
     // Fix canvas sizing bug - set to FULL mode
     coreManager.setSize(window.innerWidth, window.innerHeight, SizeMode.FULL);
+    
+    if (typeof window !== 'undefined') {
+       window.addEventListener('wheel', this.handleGlobalWheel, { passive: true });
+    }
     
     gfx3PostRenderer.setParam(PostParam.PIXELATION_ENABLED, 0.0);
     

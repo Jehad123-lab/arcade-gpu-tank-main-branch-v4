@@ -102,7 +102,7 @@ export class Enemy {
     if (this.hp <= 0) return { didShoot: false };
 
     const speed = 10;
-    const rotSpeed = 2.5;
+    const rotSpeed = 1.0; // ~60 deg/sec
 
     this.recoil -= (ts / 1000) * 5; 
     if (this.recoil < 0) this.recoil = 0;
