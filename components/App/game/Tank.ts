@@ -250,8 +250,8 @@ export class Tank {
     let yawDiff = ((aimYaw - this.turretYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
-    // Traverse feel - Snappy but weighted
-    const turretTraverseSpeed = 12.0;
+    // Traverse feel - Heavy and mechanical
+    const turretTraverseSpeed = 2.5;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);
@@ -265,7 +265,7 @@ export class Tank {
     const maxDepress = -0.15; 
     const maxElevate = 0.55;
     const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
-    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 15.0 * (ts / 1000));
+    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 4.0 * (ts / 1000));
     
     const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
 
