@@ -77,8 +77,9 @@ export class Enemy {
   shootCooldown: number = 0;
   hp: number = 100;
   turretYaw: number = 0;
+  chassisTilt: number = 0;
   currentUp: vec3 = [0, 1, 0];
-  visualQuat: Quaternion = new Quaternion();
+  visualQuat: quat = [0, 0, 0, 1];
   
   constructor(x: number, y: number, z: number) {
     // Note: initMeshes should be called externally to wait for async loading
@@ -189,7 +190,11 @@ export class Enemy {
         throttle = -0.5; 
     }
 
-    const tiltQ = Quaternion.createFromEuler(throttle !== 0 ? -Math.sign(throttle) * 1.5 * (Math.PI/180) : 0, 0, 0, 'YXZ');
+    const accelInput = (targetVelocity - this.velocity);
+    const targetTilt = -accelInput * 0.1 * (Math.PI / 180);
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 4.0 * (ts / 1000));
+
+    const tiltQ = Quaternion.createFromEuler(this.chassisTilt, 0, 0, 'YXZ');
     this.visualQuat = currentQuat.mul(tiltQ.w, tiltQ.x, tiltQ.y, tiltQ.z);
 
     const targetVelocity = throttle * speed;

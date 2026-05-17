@@ -161,11 +161,12 @@ export class Tank {
 
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
     
-    // 2. CHASSIS TILT (Acceleration feedback visual only)
-    const targetTilt = (targetVelocity !== 0 ? -Math.sign(targetVelocity) * 2.0 : 0) * (Math.PI / 180);
-    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 3.0 * (ts / 1000));
+    // 2. CHASSIS TILT (Acceleration-based lurch)
+    const acceleration = (targetVelocity - this.velocity);
+    const targetTilt = -acceleration * 0.15 * (Math.PI / 180); // Lurch proportional to accel
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 4.0 * (ts / 1000));
     
-    // Softly upright the tank to prevent it from flipping over permanently
+    // Softly upright the tank visual-only tilt
     const tiltErrorX = -currentUpVec[2]; 
     const tiltErrorZ = currentUpVec[0];  
 

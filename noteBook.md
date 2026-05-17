@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 10:20]**: Refined "Heavy Tank" feel with acceleration-based chassis lurching (lurching forward on braking, leaning back on acceleration proportional to force). Applied heavy mechanical turret traverse and chassis lurch to Enemy tanks for parity.
 -   **[2026-05-17 10:15]**: Implemented "Heavy Turret" physics. Significantly reduced the turret traverse and barrel pitch speeds in `Tank.ts` to create a massive, realistic mechanical latency as the weapons track the camera.
 -   **[2026-05-17 10:12]**: Major overhaul of tank controls and camera feel. Implemented "Sniper Mode" (Right-Click zoom) with UI crosshair scaling. Added dynamic barrel recoil sliding animations. Increased move speed to 24.0 and calibrated acceleration/braking for a punchy, modern weight-driven feel. Implemented exponential smoothing for all camera transitions.
 -   **[2026-05-17 10:05]**: Fixed the "falling from sky" bug by reducing initial spawn height from 35.0 to 5.0. Drastically improved A/D steering responsiveness by removing excessive angular damping (reduced from 15.0 to 1.0) and increasing rotation speed for a better playfeel while maintaining weight.
