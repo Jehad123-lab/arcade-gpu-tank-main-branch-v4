@@ -146,6 +146,7 @@ export class GameScreen extends Screen {
   cameraAlpha: number = 0.1;
   isSniperMode: boolean = false;
   targetCameraDistance: number = 28.0;
+  currentFov: number = (Math.PI / 180) * 45; // ~45 degrees
 
   handleGlobalWheel = (e: WheelEvent) => {
     if (inputManager.isPointerLockCaptured()) {
@@ -205,6 +206,7 @@ export class GameScreen extends Screen {
 
     this.camera.setPosition(0, 12, 20); // Start at cy=0 position offset (0, 12, distance)
     this.camera.lookAt(0, 0, 0);
+    this.cameraPos = [0, 12, 20];
     this.cameraYaw = 0; // aimYaw
     this.cameraPitch = 0.5; // aimPitch
     this.cameraDistance = 15;
@@ -316,41 +318,56 @@ export class GameScreen extends Screen {
     }
 
 
-    const finalTargetDist = this.isSniperMode ? 8.0 : this.targetCameraDistance;
+    const speedAlpha = Math.min(1.0, Math.abs(this.tank.velocity) / 30.0);
+    const finalTargetDist = (this.isSniperMode ? 8.0 : this.targetCameraDistance) + (this.isSniperMode ? 0 : speedAlpha * 6.0);
     this.cameraDistance = UT.LERP(this.cameraDistance, finalTargetDist, 1.0 - Math.exp(-8.0 * (ts / 1000)));
 
     const cameraPitchActual = this.isSniperMode ? Math.max(this.cameraPitch, -0.1) : this.cameraPitch; 
 
+    // Dynamic FOV based on speed
+    const targetFov = this.isSniperMode ? (Math.PI / 180) * 20 : (Math.PI / 180) * (45 + speedAlpha * 15);
+    this.currentFov = UT.LERP(this.currentFov, targetFov, 1.0 - Math.exp(-5.0 * (ts / 1000)));
+    this.camera.setPerspectiveFovy(this.currentFov);
+
     const rotQ = Quaternion.createFromEuler(this.cameraYaw, cameraPitchActual, 0, 'YXZ');
-    const idealOffset = rotQ.rotateVector([0, 0, this.cameraDistance]);
+    
+    // Shoulder offset: sit slightly to the right of the tank center, but center in sniper mode
+    const shoulderX = this.isSniperMode ? 0 : 2.0; 
+    const idealOffset = rotQ.rotateVector([shoulderX, 0, this.cameraDistance]);
+    
     const idealPos: vec3 = [
         playerPos[0] + idealOffset[0],
-        playerPos[1] + idealOffset[1] + 1.5,
+        playerPos[1] + idealOffset[1] + (this.isSniperMode ? 1.5 : 2.8), 
         playerPos[2] + idealOffset[2]
     ];
     
     // Prevent camera from going under ground
-    if (idealPos[1] < 1.0) {
-        idealPos[1] = 1.0;
+    if (idealPos[1] < 1.25) {
+        idealPos[1] = 1.25;
     }
     
-    // Position smoothing
-    const camAlpha = 1.0 - Math.exp(-6.0 * (ts / 1000));
+    // Position smoothing: stronger "heavy" lag
+    const camAlpha = 1.0 - Math.exp(-5.0 * (ts / 1000));
     this.cameraPos = UT.VEC3_LERP(this.cameraPos, idealPos, camAlpha);
     
-    // Look Target smoothing - Look slightly above the tank for better visibility
-    const noseOffset = rotQ.rotateVector([0, 0, -3.0]);
+    // Look Target smoothing - Look further ahead
+    const lookDist = this.isSniperMode ? -200.0 : -15.0;
+    const noseOffset = rotQ.rotateVector([shoulderX * 0.4, 0, lookDist]); 
     const lookGoal: vec3 = [
         playerPos[0] + noseOffset[0],
-        playerPos[1] + 1.8 + (idealOffset[1] * 0.15), 
+        playerPos[1] + (this.isSniperMode ? 1.8 : 2.2) + (idealOffset[1] * 0.05), 
         playerPos[2] + noseOffset[2]
     ];
-    const lookAlpha = 1.0 - Math.exp(-15.0 * (ts / 1000));
+    const lookAlpha = 1.0 - Math.exp(-12.0 * (ts / 1000));
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, lookGoal, lookAlpha);
     
-    const shakeX = (Math.random() - 0.5) * this.shakeIntensity;
-    const shakeY = (Math.random() - 0.5) * this.shakeIntensity;
-    const shakeZ = (Math.random() - 0.5) * this.shakeIntensity;
+    // Speed noise
+    const currentSpeed = Math.abs(this.tank.velocity);
+    const speedNoise = currentSpeed > 10 ? (currentSpeed - 10) * 0.002 : 0;
+    
+    const shakeX = (Math.random() - 0.5) * (this.shakeIntensity + speedNoise);
+    const shakeY = (Math.random() - 0.5) * (this.shakeIntensity + speedNoise);
+    const shakeZ = (Math.random() - 0.5) * (this.shakeIntensity + speedNoise);
     
     this.camera.setPosition(this.cameraPos[0] + shakeX, this.cameraPos[1] + shakeY, this.cameraPos[2] + shakeZ);
     this.camera.lookAt(this.cameraLookTarget[0], this.cameraLookTarget[1], this.cameraLookTarget[2]);
@@ -370,6 +387,9 @@ export class GameScreen extends Screen {
     gfx3Manager.beginDrawing();
     gfx3MeshRenderer.drawDirLight([0.6, -1.0, 0.4], [1.0, 0.95, 0.85], [1.0, 1.0, 1.0], 1.2);
     gfx3MeshRenderer.setAmbientColor([0.4, 0.4, 0.45]);
+    
+    // Modern Fog: sky blue to match the background, starting further away for clarity
+    gfx3MeshRenderer.enableFog(true, this.cameraPos, [0.53, 0.81, 0.92], 20, 180);
 
     const camPos = this.camera.getPosition();
     this.level.draw(camPos);

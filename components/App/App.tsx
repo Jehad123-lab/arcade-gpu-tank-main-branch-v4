@@ -246,6 +246,23 @@ const App = () => {
             overflow: 'hidden',
             fontFamily: Tokens.fonts.body,
         }}>
+            {/* CINEMATIC OVERLAYS */}
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%)',
+                pointerEvents: 'none',
+                zIndex: 5
+            }} />
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03))',
+                backgroundSize: '100% 3px, 3px 100%',
+                pointerEvents: 'none',
+                zIndex: 6,
+                opacity: 0.2
+            }} />
             <AnimatePresence>
                 {!isReady && (
                     <motion.div 

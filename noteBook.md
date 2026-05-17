@@ -14,6 +14,8 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 11:03]**: Fixed `ReferenceError: Cannot access 'speedAlpha' before initialization` in `GameScreen.ts`.
+-   **[2026-05-17 11:02]**: Overhauled camera system for a modern, cinematic feel. Implemented "Shoulder View" (offset to the right), dynamic FoV (45deg to 60deg based on speed), and speed-dependent camera noise. Added atmospheric fog and cinematic vignette/scanline overlays for improved depth and immersion. Refined sniper mode height and look-target logic for better precision while aiming.
 -   **[2026-05-17 10:56]**: Fixed `ReferenceError: forwardVecActual is not defined` in `Tank.ts` caused by an incomplete variable rename during the movement system overhaul.
 -   **[2026-05-17 10:55]**: Overhauled the tank movement controller. Movement is now strictly locked to the chassis forward orientation, eliminating veering and "drifting" issues. Implemented 3D vector projection for climbing slopes and increased physical weight/damping for a realistic military tank feel.
 -   **[2026-05-17 10:50]**: Overhauled projectile visuals. Improved `Shell` and `Grenade` meshes (slimmer, more aerodynamic shapes). Implemented a persistent particle trail system for all projectiles. Enhanced muzzle flashes with blinding core "flash" particles. Increased projectile speeds (Normal: 120->180, Grenade: 30->45) for better combat punch.
