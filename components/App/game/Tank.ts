@@ -104,7 +104,7 @@ export class Tank {
   update(ts: number, moveDir: { x: number, y: number }, fireNormal: boolean, fireGrenade: boolean, aimYaw: number = 0, aimPitch: number = 0): { normal: boolean, grenade: boolean, muzzlePos: vec3, muzzleDir: vec3 } {
     const moveSpeed = 18;
     const reverseSpeed = 12;
-    const rotSpeed = 160 * (Math.PI / 180);
+    const rotSpeed = 240 * (Math.PI / 180);
 
     let didShootNormal = false;
     let didShootGrenade = false;
@@ -128,57 +128,85 @@ export class Tank {
     if (this.grenadeRecoil < 0) this.grenadeRecoil = 0;
     
     // 1. CHASSIS MOVEMENT
-    if (moveDir.x !== 0) {
-      this.rotation -= moveDir.x * rotSpeed * (ts / 1000); 
-    }
-
-    const throttle = moveDir.y; 
-    const targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
+    const moveX = moveDir.x;
+    const moveY = moveDir.y;
     
-    const isBraking = (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
-    const accelRate = throttle !== 0 ? (isBraking ? -15.0 : -6.0) : -12.0;
-    const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
-    this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
+    let targetVelocity = 0;
+    let targetAngularVelY = 0;
 
     const qPhysics = this.physicsBody.body.GetRotation();
     const currentQuat = new Quaternion(qPhysics.GetW(), qPhysics.GetX(), qPhysics.GetY(), qPhysics.GetZ());
-    
     const currentForward = currentQuat.rotateVector([0, 0, -1]);
     const currentYaw = Math.atan2(-currentForward[0], -currentForward[2]);
-    
+    this.rotation = currentYaw; // Sync for other reads
+
+    let isDriveInput = moveX !== 0 || moveY !== 0;
+    if (isDriveInput) {
+        const inputYaw = Math.atan2(-moveX, moveY); 
+        let targetYaw = aimYaw + inputYaw;
+        
+        let yawDiff = ((targetYaw - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        
+        let isReversing = false;
+        // If the target direction is generally behind the tank, reverse instead of turning fully around
+        if (Math.abs(yawDiff) > Math.PI * 0.6) {
+            isReversing = true;
+            targetYaw += Math.PI;
+            yawDiff = ((targetYaw - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+            if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        }
+        
+        targetAngularVelY = yawDiff * 6.0; 
+        targetAngularVelY = Math.max(-rotSpeed, Math.min(rotSpeed, targetAngularVelY));
+        
+        const alignFactor = Math.max(0, 1.0 - Math.abs(yawDiff) / (Math.PI / 3)); 
+        const throttleIntensity = Math.min(1.0, Math.sqrt(moveX * moveX + moveY * moveY));
+        const unconstrainedVel = isReversing ? -reverseSpeed : moveSpeed;
+        
+        targetVelocity = unconstrainedVel * throttleIntensity * (0.2 + 0.8 * alignFactor); 
+    }
+
+    const isBraking = (isDriveInput && ((targetVelocity > 0 && this.velocity < 0) || (targetVelocity < 0 && this.velocity > 0))) || (!isDriveInput && this.velocity !== 0);
+    const accelRate = isDriveInput ? (isBraking ? -15.0 : -6.0) : -12.0;
+    const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
+    this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
+
     const currentUpVec = currentQuat.rotateVector([0, 1, 0]);
     
     // 2. CHASSIS TILT (Acceleration feedback)
-    const targetTilt = (throttle !== 0 ? -throttle * 1.5 : 0) * (Math.PI / 180);
+    const targetTilt = (targetVelocity !== 0 ? -Math.sign(targetVelocity) * 1.5 : 0) * (Math.PI / 180);
     this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 5.0 * (ts / 1000));
     
     const tiltErrorX = -currentUpVec[2] + this.chassisTilt; 
     const tiltErrorZ = currentUpVec[0];  
 
-    let bodyYawDiff = ((this.rotation - currentYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-    if (bodyYawDiff > Math.PI) bodyYawDiff -= Math.PI * 2;
-    this.rotation = currentYaw + Math.max(-0.5, Math.min(0.5, bodyYawDiff));
-    
-    const targetAngularVelY = bodyYawDiff * 25.0; 
+    const currentAngVel = this.physicsBody.body.GetAngularVelocity();
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-15.0 * (ts / 1000)));
+
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, targetAngularVelY, tiltErrorZ * 20.0)
+        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, newAngY, tiltErrorZ * 20.0)
     );
 
     const uprightQuat = Quaternion.createFromEuler(currentYaw, 0, 0, 'YXZ');
     const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]); 
-    const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
+    const sideVec = uprightQuat.rotateVector([1, 0, 0]);
     
-    const targetVelX = forwardVecActual[0] * this.velocity;
-    const targetVelZ = forwardVecActual[2] * this.velocity;
-    const dampingFactor = Math.pow(0.1, ts / 1000); 
+    const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
+    const currentLateral = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
+    
+    const dampingFactor = Math.pow(0.05, ts / 1000); 
+    
+    const targetVelX = forwardVecActual[0] * this.velocity + sideVec[0] * currentLateral * dampingFactor;
+    const targetVelZ = forwardVecActual[2] * this.velocity + sideVec[2] * currentLateral * dampingFactor;
     
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
         new Gfx3Jolt.Vec3(
-            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, 0.5), 
+            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, 1.0 - Math.exp(-12.0 * (ts / 1000))), 
             currentJoltVel.GetY(), 
-            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, 0.5)
+            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, 1.0 - Math.exp(-12.0 * (ts / 1000)))
         )
     );
 
