@@ -109,20 +109,36 @@ export class Explosion implements Poolable<Explosion> {
             }
             
         } else if (type === 'trail') {
-            // Trail: just 1 or 2 small smoke particles
+            // Trail: small fire transitioning to smoke
             const numParticles = 1;
             for (let i = 0; i < numParticles; i++) {
-                const pos: vec3 = [x + (Math.random() - 0.5) * 0.2, y + (Math.random() - 0.5) * 0.2, z + (Math.random() - 0.5) * 0.2];
-                let dirX = (Math.random() - 0.5) * 2;
-                let dirY = Math.random() * + 0.5;
-                let dirZ = (Math.random() - 0.5) * 2;
-                const vel = UT.VEC3_SCALE(UT.VEC3_NORMALIZE([dirX, dirY, dirZ]), 2.0);
-                const life = 0.5 + Math.random() * 0.3;
-                this.particles.push({ pos, vel, life, maxLife: life, colorIdx: 3 + Math.floor(Math.random() * 2), scaleMultiplier: scaleMultiplier * 0.5, type: 'smoke' });
+                const pos: vec3 = [x + (Math.random() - 0.5) * 0.1, y + (Math.random() - 0.5) * 0.1, z + (Math.random() - 0.5) * 0.1];
+                let dirX = (Math.random() - 0.5) * 0.5;
+                let dirY = (Math.random() - 0.5) * 0.5;
+                let dirZ = (Math.random() - 0.5) * 0.5;
+                const vel = UT.VEC3_SCALE([dirX, dirY, dirZ], 0.5);
+                const life = 0.4 + Math.random() * 0.4;
+                // colorIdx 0 is fire/bright, 3 is smoke
+                this.particles.push({ 
+                    pos, vel, life, maxLife: life, 
+                    colorIdx: Math.random() < 0.3 ? 0 : 3, 
+                    scaleMultiplier: scaleMultiplier * (0.8 + Math.random() * 0.4), 
+                    type: Math.random() < 0.3 ? 'fire' : 'smoke' 
+                });
             }
         } else {
             // Muzzle or normal explosion
             const numParticles = Math.floor((direction ? 12 : 20) * (scaleMultiplier >= 2 ? 1.5 : scaleMultiplier));
+
+            if (type === 'muzzle') {
+                this.particles.push({ 
+                    pos: [x, y, z], vel: [0, 0, 0], 
+                    life: 0.1, maxLife: 0.1, 
+                    colorIdx: 1, 
+                    scaleMultiplier: scaleMultiplier * 2.0, 
+                    type: 'flash' 
+                });
+            }
 
             for (let i = 0; i < numParticles; i++) {
                 const pos: vec3 = [x + (Math.random() - 0.5) * 0.5 * scaleMultiplier, y + (Math.random() - 0.5) * 0.5 * scaleMultiplier, z + (Math.random() - 0.5) * 0.5 * scaleMultiplier];

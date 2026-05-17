@@ -109,8 +109,10 @@ export class GameScreen extends Screen {
     this.projectiles = [];
     
     // Create base meshes for projectiles
-    this.shellMesh = createBoxMesh(0.4, 0.4, 1.2, [1.0, 0.8, 0.2]); // Visible golden shell
-    this.grenadeMesh = createBoxMesh(0.6, 0.6, 0.6, [1.0, 0.3, 0.1]); // Bright grenade body
+    // Shell: Longer, slimmer, yellow/bright
+    this.shellMesh = createBoxMesh(0.2, 0.2, 1.8, [1.0, 1.0, 0.3]); 
+    // Grenade: Larger, dark grey with orange stripe (simulated by color contrast)
+    this.grenadeMesh = createBoxMesh(0.7, 0.7, 0.7, [0.3, 0.3, 0.3]); 
 
     // Spawn exactly 3 enemies as requested
     while (this.enemies.length < 3) {
@@ -437,8 +439,8 @@ export class GameScreen extends Screen {
         gfx3JoltManager.bodyInterface.SetGravityFactor(pBody.body.GetID(), 0); 
     }
 
-    let forwardSpeed = type === ProjectileType.GRENADE ? 30 : 120; 
-    let upwardVel = type === ProjectileType.GRENADE ? 15 : 0;
+    let forwardSpeed = type === ProjectileType.GRENADE ? 45 : 180; 
+    let upwardVel = type === ProjectileType.GRENADE ? 18 : 0;
     
     forwardSpeed *= speedMod;
 
@@ -485,10 +487,12 @@ export class GameScreen extends Screen {
         continue;
       }
       
-      if (p.type === ProjectileType.GRENADE && Math.random() < 0.15) {
+      if (p.life < 4.9 && Math.random() < 0.4) {
           const exp = this.explosionPool.acquire() as Explosion;
           if (exp) {
-              exp.reset(pPos3[0], pPos3[1], pPos3[2], [0.4, 0.4, 0.4], undefined, 1.2, 'trail');
+              const trailColor: [number, number, number] = p.type === ProjectileType.GRENADE ? [0.6, 0.6, 0.6] : [1.0, 0.8, 0.5];
+              const trailScale = p.type === ProjectileType.GRENADE ? 1.5 : 0.6;
+              exp.reset(pPos3[0], pPos3[1], pPos3[2], trailColor, undefined, trailScale, 'trail');
               this.explosions.push(exp);
           }
       }
