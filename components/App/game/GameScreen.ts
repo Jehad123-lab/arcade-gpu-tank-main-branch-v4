@@ -94,29 +94,11 @@ export class GameScreen extends Screen {
   shakeIntensity: number = 0;
   lastMouseManualTS: number = 0;
 
-  // Jolt Scratch Objects
-  private _scratchRay: Jolt.RRayCast;
-  private _scratchRaySettings: Jolt.RayCastSettings;
-  private _scratchRayResult: Jolt.RayCastResult;
-  private _scratchBpFilter: Jolt.DefaultBroadPhaseLayerFilter;
-  private _scratchObjFilter: Jolt.DefaultObjectLayerFilter;
-  private _scratchQuat: Jolt.Quat;
-  private _scratchVec3: Jolt.Vec3;
-
   constructor() {
     super();
     this.camera = new Gfx3Camera(0);
     this.tank = new Tank();
     this.level = new Environment();
-
-    // Init Scratch
-    this._scratchRay = new Gfx3Jolt.RRayCast();
-    this._scratchRaySettings = new Gfx3Jolt.RayCastSettings();
-    this._scratchRayResult = new Gfx3Jolt.RayCastResult();
-    this._scratchBpFilter = new Gfx3Jolt.DefaultBroadPhaseLayerFilter(gfx3JoltManager.inter.GetObjectVsBroadPhaseLayerFilter(), JOLT_LAYER_NON_MOVING);
-    this._scratchObjFilter = new Gfx3Jolt.DefaultObjectLayerFilter(gfx3JoltManager.inter.GetObjectLayerPairFilter(), JOLT_LAYER_NON_MOVING);
-    this._scratchQuat = new Gfx3Jolt.Quat(0, 0, 0, 1);
-    this._scratchVec3 = new Gfx3Jolt.Vec3(0, 0, 0);
     
     this.explosionPool = new ObjectPool<Explosion>(new Explosion(), 600, (obj: Explosion) => {
         obj.active = false;
@@ -367,21 +349,27 @@ export class GameScreen extends Screen {
     
     // 4. CAMERA OCCLUSION (Raycasting to prevent wall clipping)
     // We only want to hit NON_MOVING layers (buildings, terrain) to avoid hitting the tank itself
-    this._scratchRay.mOrigin.Set(playerPos[0], playerPos[1] + 1.5, playerPos[2]);
-    this._scratchRay.mDirection.Set(idealPos[0] - playerPos[0], idealPos[1] - (playerPos[1] + 1.5), idealPos[2] - playerPos[2]);
+    const ray = new Gfx3Jolt.RRayCast();
+    ray.mOrigin.Set(playerPos[0], playerPos[1] + 1.5, playerPos[2]);
+    ray.mDirection.Set(idealPos[0] - playerPos[0], idealPos[1] - (playerPos[1] + 1.5), idealPos[2] - playerPos[2]);
+    
+    const raySettings = new Gfx3Jolt.RayCastSettings();
+    const bpFilter = new Gfx3Jolt.DefaultBroadPhaseLayerFilter(gfx3JoltManager.inter.GetObjectVsBroadPhaseLayerFilter(), JOLT_LAYER_NON_MOVING);
+    const objFilter = new Gfx3Jolt.DefaultObjectLayerFilter(gfx3JoltManager.inter.GetObjectLayerPairFilter(), JOLT_LAYER_NON_MOVING);
+    const hit = new Gfx3Jolt.RayCastResult();
     
     const hasHit = gfx3JoltManager.system.GetNarrowPhaseQuery().CastRay(
-        this._scratchRay, 
-        this._scratchRaySettings, 
-        this._scratchRayResult, 
-        this._scratchBpFilter, 
-        this._scratchObjFilter, 
+        ray, 
+        raySettings, 
+        hit, 
+        bpFilter, 
+        objFilter, 
         gfx3JoltManager.raycastBodyFilter, 
         gfx3JoltManager.raycastShapeFilter
     );
     
-    if (hasHit && this._scratchRayResult.mFraction < 1.0) {
-        const hitDist = this._scratchRayResult.mFraction * 0.9;
+    if (hasHit && hit.mFraction < 1.0) {
+        const hitDist = hit.mFraction * 0.9;
         const dirX = idealPos[0] - playerPos[0];
         const dirY = idealPos[1] - (playerPos[1] + 1.5);
         const dirZ = idealPos[2] - playerPos[2];
@@ -392,26 +380,29 @@ export class GameScreen extends Screen {
             playerPos[2] + dirZ * hitDist
         ];
     }
+    
+    Gfx3Jolt.destroy(ray);
+    Gfx3Jolt.destroy(raySettings);
+    Gfx3Jolt.destroy(bpFilter);
+    Gfx3Jolt.destroy(objFilter);
+    Gfx3Jolt.destroy(hit);
 
     // Prevent camera from going under ground
     if (idealPos[1] < 1.25) {
         idealPos[1] = 1.25;
     }
     
-    // Position smoothing: stronger "heavy" lag
-    const camAlpha = 1.0 - Math.exp(-5.0 * (ts / 1000));
+    // Position smoothing: stronger "heavy" lag for the position only, giving a sense of weight
+    const camAlpha = 1.0 - Math.exp(-8.0 * (ts / 1000));
     this.cameraPos = UT.VEC3_LERP(this.cameraPos, idealPos, camAlpha);
     
-    // Look Target smoothing - Look further ahead
-    const lookDist = this.isSniperMode ? -200.0 : -15.0;
-    const noseOffset = rotQ.rotateVector([shoulderX * 0.4, 0, lookDist]); 
-    const lookGoal: vec3 = [
-        playerPos[0] + noseOffset[0],
-        playerPos[1] + (this.isSniperMode ? 1.8 : 2.2) + (idealOffset[1] * 0.05), 
-        playerPos[2] + noseOffset[2]
+    // Look Target - INSTANT response to mouse movements for precise aiming
+    const lookDir = rotQ.rotateVector([0, 0, -1]);
+    this.cameraLookTarget = [
+        this.cameraPos[0] + lookDir[0] * 100,
+        this.cameraPos[1] + lookDir[1] * 100,
+        this.cameraPos[2] + lookDir[2] * 100
     ];
-    const lookAlpha = 1.0 - Math.exp(-12.0 * (ts / 1000));
-    this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, lookGoal, lookAlpha);
     
     // Speed noise
     const currentSpeed = Math.abs(this.tank.velocity);
@@ -422,7 +413,7 @@ export class GameScreen extends Screen {
     const shakeZ = (Math.random() - 0.5) * (this.shakeIntensity + speedNoise);
     
     this.camera.setPosition(this.cameraPos[0] + shakeX, this.cameraPos[1] + shakeY, this.cameraPos[2] + shakeZ);
-    this.camera.lookAt(this.cameraLookTarget[0], this.cameraLookTarget[1], this.cameraLookTarget[2]);
+    this.camera.lookAt(this.cameraLookTarget[0] + shakeX, this.cameraLookTarget[1] + shakeY, this.cameraLookTarget[2] + shakeZ);
     
     this.shakeIntensity = UT.LERP(this.shakeIntensity, 0, 5.0 * (ts / 1000));
   }
@@ -478,17 +469,17 @@ export class GameScreen extends Screen {
 
   spawnProjectile(type: ProjectileType, x: number, y: number, z: number, orientation: Quaternion | vec3, ownerId: string, speedMod: number = 1.0) {
     let finalDirection: vec3;
-    let finalRotation: any;
+    let finalRotationQuat: any;
 
     if (orientation instanceof Quaternion) {
         finalDirection = orientation.rotateVector([0, 0, -1]);
-        this._scratchQuat.Set(orientation.x, orientation.y, orientation.z, orientation.w);
+        finalRotationQuat = new Gfx3Jolt.Quat(orientation.x, orientation.y, orientation.z, orientation.w);
     } else {
         finalDirection = orientation;
         const yaw = Math.atan2(-finalDirection[0], -finalDirection[2]);
         const pitch = Math.asin(finalDirection[1]);
         const q = Quaternion.createFromEuler(yaw, pitch, 0, 'YXZ');
-        this._scratchQuat.Set(q.x, q.y, q.z, q.w);
+        finalRotationQuat = new Gfx3Jolt.Quat(q.x, q.y, q.z, q.w);
     }
 
     const pMesh = type === ProjectileType.GRENADE ? this.grenadeMesh : this.shellMesh;
@@ -498,7 +489,7 @@ export class GameScreen extends Screen {
       height: type === ProjectileType.GRENADE ? 0.6 : 0.4,
       depth: type === ProjectileType.GRENADE ? 0.6 : 1.2,
       x: x, y: y, z: z,
-      rotation: this._scratchQuat,
+      rotation: finalRotationQuat,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
@@ -506,6 +497,8 @@ export class GameScreen extends Screen {
           mRestitution: 0.025 
       }
     });
+    
+    Gfx3Jolt.destroy(finalRotationQuat);
 
     if (type === ProjectileType.SHELL) {
         gfx3JoltManager.bodyInterface.SetGravityFactor(pBody.body.GetID(), 0); 
@@ -516,25 +509,28 @@ export class GameScreen extends Screen {
     
     forwardSpeed *= speedMod;
 
-    this._scratchVec3.Set(
+    const vLin = new Gfx3Jolt.Vec3(
       finalDirection[0] * forwardSpeed, 
       (finalDirection[1] * forwardSpeed) + upwardVel, 
       finalDirection[2] * forwardSpeed
     );
-    gfx3JoltManager.bodyInterface.SetLinearVelocity(pBody.body.GetID(), this._scratchVec3);
+    gfx3JoltManager.bodyInterface.SetLinearVelocity(pBody.body.GetID(), vLin);
+    Gfx3Jolt.destroy(vLin);
 
     if (type === ProjectileType.GRENADE) {
-        this._scratchVec3.Set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40);
-        gfx3JoltManager.bodyInterface.SetAngularVelocity(pBody.body.GetID(), this._scratchVec3);
+        const vAng = new Gfx3Jolt.Vec3((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40);
+        gfx3JoltManager.bodyInterface.SetAngularVelocity(pBody.body.GetID(), vAng);
+        Gfx3Jolt.destroy(vAng);
     }
 
+    const startVel = pBody.body.GetLinearVelocity();
     this.projectiles.push({
       body: pBody,
       life: 5.0,
       type,
       ownerId,
       mesh: pMesh,
-      lastVel: [pVel.GetX(), pVel.GetY(), pVel.GetZ()]
+      lastVel: [startVel.GetX(), startVel.GetY(), startVel.GetZ()]
     });
   }
 
@@ -616,8 +612,9 @@ export class GameScreen extends Screen {
                 const yaw = Math.atan2(-dir[0], -dir[2]);
                 const pitch = Math.asin(dir[1]);
                 const q = Quaternion.createFromEuler(yaw, pitch, 0, 'YXZ');
-                this._scratchQuat.Set(q.x, q.y, q.z, q.w);
-                gfx3JoltManager.bodyInterface.SetRotation(p.body.body.GetID(), this._scratchQuat, Gfx3Jolt.EActivation_Activate);
+                const jRot = new Gfx3Jolt.Quat(q.x, q.y, q.z, q.w);
+                gfx3JoltManager.bodyInterface.SetRotation(p.body.body.GetID(), jRot, Gfx3Jolt.EActivation_Activate);
+                Gfx3Jolt.destroy(jRot);
              }
           }
       }
@@ -682,8 +679,9 @@ export class GameScreen extends Screen {
           if (dist < radius) {
               enemy.hp -= damage;
               const pushDir = UT.VEC3_NORMALIZE(UT.VEC3_SUBSTRACT([ePos.GetX(), ePos.GetY() + 0.5, ePos.GetZ()], origin));
-              this._scratchVec3.Set(pushDir[0] * 2000, pushDir[1] * 1000, pushDir[2] * 2000);
-              gfx3JoltManager.bodyInterface.AddImpulse(enemy.physicsBody.body.GetID(), this._scratchVec3);
+              const vecPush = new Gfx3Jolt.Vec3(pushDir[0] * 2000, pushDir[1] * 1000, pushDir[2] * 2000);
+              gfx3JoltManager.bodyInterface.AddImpulse(enemy.physicsBody.body.GetID(), vecPush);
+              Gfx3Jolt.destroy(vecPush);
               
               if (enemy.hp <= 0) {
                   // Wait for the main loop to clean up the dead physics entity.
