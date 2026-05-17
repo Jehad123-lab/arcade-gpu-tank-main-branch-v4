@@ -46,21 +46,34 @@ export class Environment {
     const terrainData = createTerrainMesh(400, 400, 32, 32, [0.25, 0.45, 0.2], canvas);
     this.floor = terrainData.mesh;
     
-    // Add a simple box collider as a test
-    gfx3JoltManager.addBox({
-        width: 400, height: 1, depth: 400,
-        x: 0, y: -2, z: 0,
-        motionType: Gfx3Jolt.EMotionType_Static,
-        layer: JOLT_LAYER_NON_MOVING
-    });
+    const indexesArray = new Gfx3Jolt.IndexedTriangleList();
+    const vertexArray = new Gfx3Jolt.VertexList();
 
-    gfx3JoltManager.addPolygonShape({
-        vertices: terrainData.vertices,
-        indexes: terrainData.indexes,
-        x: 0, y: 0, z: 0,
-        motionType: Gfx3Jolt.EMotionType_Static,
-        layer: JOLT_LAYER_NON_MOVING
-    });
+    for (let i = 0; i < terrainData.vertices.length; i += 3) {
+      vertexArray.push_back(
+        new Gfx3Jolt.Float3(terrainData.vertices[i + 0], terrainData.vertices[i + 1], terrainData.vertices[i + 2])
+      );
+    }
+
+    for (let i = 0; i < terrainData.indexes.length; i += 3) {
+      indexesArray.push_back(
+        new Gfx3Jolt.IndexedTriangle(terrainData.indexes[i + 0], terrainData.indexes[i + 1], terrainData.indexes[i + 2], 0)
+      );
+    }
+
+    const m = new Gfx3Jolt.PhysicsMaterialList();
+    const settings = new Gfx3Jolt.MeshShapeSettings(vertexArray, indexesArray, m);
+    const result = settings.Create();
+
+    if (!result.HasError()) {
+       gfx3JoltManager.addEntity(result.Get(), {
+         x: 0, y: 0, z: 0,
+         motionType: Gfx3Jolt.EMotionType_Static,
+         layer: JOLT_LAYER_NON_MOVING
+       });
+    } else {
+       console.error("Terrain collision generation failed:", result.GetError());
+    }
 
     // Generate mountains/walls at the edges
     const mapSize = 400;

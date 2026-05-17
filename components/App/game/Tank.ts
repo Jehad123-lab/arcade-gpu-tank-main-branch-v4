@@ -63,7 +63,7 @@ export class Tank {
 
     this.physicsBody = gfx3JoltManager.addBox({
       width: 3.45, height: 1.2, depth: 3.6,
-      x: 0, y: 5.0, z: 0,
+      x: 0, y: 35.0, z: 0,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
@@ -213,8 +213,8 @@ export class Tank {
     const pos = this.physicsBody.body.GetPosition();
     
     // Teleport if out of bounds
-    if (pos.GetY() < -10.0) {
-        const resetPos = new Gfx3Jolt.RVec3(0, 15.0, 0);
+    if (pos.GetY() < -20.0) {
+        const resetPos = new Gfx3Jolt.RVec3(0, 35.0, 0);
         gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), resetPos, Gfx3Jolt.EActivation_Activate);
         gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), new Gfx3Jolt.Vec3(0, 0, 0));
     }

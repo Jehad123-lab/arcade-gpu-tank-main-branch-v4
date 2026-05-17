@@ -111,7 +111,7 @@ export class Enemy {
 
     const pos = this.physicsBody.body.GetPosition();
 
-    if (pos.GetY() < -10.0) {
+    if (pos.GetY() < -20.0) {
         this.hp = 0; 
         return { didShoot: false };
     }
@@ -170,9 +170,12 @@ export class Enemy {
     this.rotation = currentYaw + Math.max(-0.5, Math.min(0.5, physYawDiff));
     
     const targetAngularVelY = physYawDiff * 15.0; 
+    const currentAngVel = this.physicsBody.body.GetAngularVelocity();
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-15.0 * (ts / 1000)));
+
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(tiltErrorX * 12.0, targetAngularVelY, tiltErrorZ * 12.0)
+        new Gfx3Jolt.Vec3(tiltErrorX * 20.0, newAngY, tiltErrorZ * 20.0)
     );
 
     this.visualQuat = currentQuat;
@@ -192,20 +195,23 @@ export class Enemy {
 
     const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]);
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
-    
-    const velAlpha = 1.0 - Math.exp(-20.0 * (ts / 1000));
-    const targetVelX = forwardVecActual[0] * this.velocity;
-    const targetVelZ = forwardVecActual[2] * this.velocity;
+    const sideVec = uprightQuat.rotateVector([1, 0, 0]);
+    const currentLateral = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
     
     // Manual Damping
-    const dampingFactor = Math.pow(0.5, ts / 1000);
+    const lateralDamping = Math.pow(0.05, ts / 1000);
+    const targetVelX = forwardVecActual[0] * this.velocity + sideVec[0] * currentLateral * lateralDamping;
+    const targetVelZ = forwardVecActual[2] * this.velocity + sideVec[2] * currentLateral * lateralDamping;
+
+    const velAlpha = 1.0 - Math.exp(-12.0 * (ts / 1000));
+    const forwardDamping = Math.pow(0.05, ts / 1000); 
 
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
         new Gfx3Jolt.Vec3(
-            UT.LERP(currentJoltVel.GetX() * dampingFactor, targetVelX, velAlpha), 
+            UT.LERP(currentJoltVel.GetX() * forwardDamping, targetVelX, velAlpha), 
             currentJoltVel.GetY(), 
-            UT.LERP(currentJoltVel.GetZ() * dampingFactor, targetVelZ, velAlpha)
+            UT.LERP(currentJoltVel.GetZ() * forwardDamping, targetVelZ, velAlpha)
         )
     );
     

@@ -117,7 +117,7 @@ export class GameScreen extends Screen {
        const x = (Math.random() - 0.5) * 120;
        const z = (Math.random() - 0.5) * 120;
        if (Math.abs(x) < 25 && Math.abs(z) < 25) continue;
-       this.enemies.push(new Enemy(x, 2, z));
+       this.enemies.push(new Enemy(x, 35, z));
     }
 
     if (typeof window !== 'undefined') {
@@ -249,7 +249,18 @@ export class GameScreen extends Screen {
     const tankP = this.tank.physicsBody.body.GetPosition();
     const playerPos: vec3 = [tankP.GetX(), tankP.GetY(), tankP.GetZ()];
     
-    for (const enemy of this.enemies) {
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+       const enemy = this.enemies[i];
+       
+       if (enemy.hp <= 0) {
+           if (enemy.physicsBody) {
+               gfx3JoltManager.remove(enemy.physicsBody.bodyId);
+               enemy.physicsBody = null as any;
+           }
+           this.enemies.splice(i, 1);
+           continue;
+       }
+
        const res = enemy.update(ts, playerPos);
        if (res.didShoot && res.muzzlePos && res.dir) {
            this.spawnProjectile(ProjectileType.SHELL, res.muzzlePos[0], res.muzzlePos[1], res.muzzlePos[2], res.dir, 'enemy', 1.0);
@@ -519,7 +530,6 @@ export class GameScreen extends Screen {
                   expDeath.reset(ePos.GetX(), ePos.GetY(), ePos.GetZ(), [0.8, 0.2, 0.1], undefined, 2.5);
                   this.explosions.push(expDeath);
               }
-              gfx3JoltManager.remove(target.physicsBody.bodyId);
           }
       } else {
           this.tank.hp -= dmg;
@@ -562,7 +572,7 @@ export class GameScreen extends Screen {
               gfx3JoltManager.bodyInterface.AddImpulse(enemy.physicsBody.body.GetID(), pushForce);
               
               if (enemy.hp <= 0) {
-                  gfx3JoltManager.remove(enemy.physicsBody.bodyId);
+                  // Wait for the main loop to clean up the dead physics entity.
               }
           }
       }
