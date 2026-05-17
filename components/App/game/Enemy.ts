@@ -190,6 +190,7 @@ export class Enemy {
         throttle = -0.5; 
     }
 
+    const targetVelocity = throttle * speed;
     const accelInput = (targetVelocity - this.velocity);
     const targetTilt = -accelInput * 0.1 * (Math.PI / 180);
     this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 4.0 * (ts / 1000));
@@ -197,7 +198,6 @@ export class Enemy {
     const tiltQ = Quaternion.createFromEuler(this.chassisTilt, 0, 0, 'YXZ');
     this.visualQuat = currentQuat.mul(tiltQ.w, tiltQ.x, tiltQ.y, tiltQ.z);
 
-    const targetVelocity = throttle * speed;
     const isBraking = (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
     const accelRate = throttle !== 0 ? (isBraking ? -20.0 : -6.0) : -15.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
