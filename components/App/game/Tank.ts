@@ -37,10 +37,15 @@ export class Tank {
   hp: number = 100;
   recoil: number = 0;
 
+  private static _scratchRVec3: Jolt.RVec3;
+  private static _scratchVec3: Jolt.Vec3;
+
   static initHPMeshes() {
     if (Tank.hpInit) return;
     Tank.hpGreen = createUnitBoxMesh([0, 1, 0]);
     Tank.hpRed = createUnitBoxMesh([1, 0, 0]);
+    Tank._scratchRVec3 = new Gfx3Jolt.RVec3(0, 0, 0);
+    Tank._scratchVec3 = new Gfx3Jolt.Vec3(0, 0, 0);
     Tank.hpInit = true;
   }
   
@@ -179,16 +184,18 @@ export class Tank {
     // 1.5 MANUAL VELOCITY DAMPING (Fixes "skating" and "drifting")
     const currentLinVel = this.physicsBody.body.GetLinearVelocity();
     const linDamping = 0.985; // Air/Ground resistance
+    Tank._scratchVec3.Set(currentLinVel.GetX() * linDamping, currentLinVel.GetY(), currentLinVel.GetZ() * linDamping);
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(currentLinVel.GetX() * linDamping, currentLinVel.GetY(), currentLinVel.GetZ() * linDamping)
+        Tank._scratchVec3
     );
     
     // High angular damping to prevent spinning out when turning
     const angDamping = 0.95;
+    Tank._scratchVec3.Set(newAngX * angDamping, newAngY * angDamping, newAngZ * angDamping);
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newAngX * angDamping, newAngY * angDamping, newAngZ * angDamping)
+        Tank._scratchVec3
     );
 
     // 3. STRICT LINEAR VELOCITY (Follow chassis forward)
@@ -205,18 +212,20 @@ export class Tank {
     const verticalAssist = forward[1] * this.velocity;
     const newVelY = currentJoltVel.GetY() * (Math.abs(verticalAssist) > 0.1 ? 0.5 : 1.0) + verticalAssist;
 
+    Tank._scratchVec3.Set(newVelX, newVelY, newVelZ);
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newVelX, newVelY, newVelZ)
+        Tank._scratchVec3
     );
 
     const pos = this.physicsBody.body.GetPosition();
     
     // Teleport if out of bounds
     if (pos.GetY() < -20.0) {
-        const resetPos = new Gfx3Jolt.RVec3(0, 2.0, 0);
-        gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), resetPos, Gfx3Jolt.EActivation_Activate);
-        gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), new Gfx3Jolt.Vec3(0, 0, 0));
+        Tank._scratchRVec3.Set(0, 2.0, 0);
+        gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), Tank._scratchRVec3, Gfx3Jolt.EActivation_Activate);
+        Tank._scratchVec3.Set(0, 0, 0);
+        gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), Tank._scratchVec3);
     }
 
     // --- SYNC VISUALS ---

@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 11:14]**: Re-fixed camera occlusion implementation. Corrected non-existent `SpecifiedBroadPhaseLayerFilter` constructor usage to `DefaultBroadPhaseLayerFilter` and ensured all temporary WASM objects are properly destroyed to prevent memory leaks.
 -   **[2026-05-17 11:10]**: Fixed `TypeError: Cannot read properties of undefined (reading 'GetNarrowPhaseQuery')` in `GameScreen.ts` by correcting the physics system property name to `.system` and initializing the correct broadphase layer filter for camera occlusion raycasting.
 -   **[2026-05-17 11:08]**: Complete "Modern Tank Simulator" overhaul. Implemented camera occlusion (raycasting), tiered-zoom levels, and manual physics damping for a heavy kinetic feel. Enhanced projectile tracers with volumetric smoke and fire. Added military-grade UI overlays (fractal noise, scanlines, vignettes) for maximum immersion.
 -   **[2026-05-17 11:03]**: Fixed `ReferenceError: Cannot access 'speedAlpha' before initialization` in `GameScreen.ts`.

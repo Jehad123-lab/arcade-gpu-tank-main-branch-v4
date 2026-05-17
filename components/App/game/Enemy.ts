@@ -80,11 +80,23 @@ export class Enemy {
   chassisTilt: number = 0;
   currentUp: vec3 = [0, 1, 0];
   visualQuat: quat = [0, 0, 0, 1];
+
+  private static _scratchRay: Jolt.RRayCast;
+  private static _scratchRaySettings: Jolt.RayCastSettings;
+  private static _scratchRayResult: Jolt.RayCastResult;
+  private static _scratchVec3: Jolt.Vec3;
   
   constructor(x: number, y: number, z: number) {
     // Note: initMeshes should be called externally to wait for async loading
     if (!Enemy.initialized) {
        Enemy.initMeshes(); 
+    }
+
+    if (!Enemy._scratchRay) {
+      Enemy._scratchRay = new Gfx3Jolt.RRayCast();
+      Enemy._scratchRaySettings = new Gfx3Jolt.RayCastSettings();
+      Enemy._scratchRayResult = new Gfx3Jolt.RayCastResult();
+      Enemy._scratchVec3 = new Gfx3Jolt.Vec3(0, 0, 0);
     }
 
     this.physicsBody = gfx3JoltManager.addBox({
@@ -134,11 +146,24 @@ export class Enemy {
     const fRight = qRot.rotateVector([0.7, 0, -1.0]);
     
     const rayDist = 12.0;
-    const lRay = gfx3JoltManager.createRay(pos.GetX(), castStartY, pos.GetZ(), pos.GetX() + fLeft[0] * rayDist, castStartY, pos.GetZ() + fLeft[2] * rayDist);
-    const rRay = gfx3JoltManager.createRay(pos.GetX(), castStartY, pos.GetZ(), pos.GetX() + fRight[0] * rayDist, castStartY, pos.GetZ() + fRight[2] * rayDist);
-    
-    const lHit = lRay.fraction < 1.0 && lRay.fraction > 0.15;
-    const rHit = rRay.fraction < 1.0 && rRay.fraction > 0.15;
+
+    const castRay = (dir: vec3) => {
+        Enemy._scratchRay.mOrigin.Set(pos.GetX(), castStartY, pos.GetZ());
+        Enemy._scratchRay.mDirection.Set(dir[0] * rayDist, 0, dir[2] * rayDist);
+        const hasHit = gfx3JoltManager.system.GetNarrowPhaseQuery().CastRay(
+            Enemy._scratchRay,
+            Enemy._scratchRaySettings,
+            Enemy._scratchRayResult,
+            gfx3JoltManager.raycastBPFilter,
+            gfx3JoltManager.raycastObjectFilter,
+            gfx3JoltManager.raycastBodyFilter,
+            gfx3JoltManager.raycastShapeFilter
+        );
+        return hasHit && Enemy._scratchRayResult.mFraction < 1.0 && Enemy._scratchRayResult.mFraction > 0.15;
+    };
+
+    const lHit = castRay(fLeft);
+    const rHit = castRay(fRight);
     
     let isAvoiding = false;
     if (lHit && !rHit) {
@@ -179,9 +204,10 @@ export class Enemy {
     const newAngX = currentAngVel.GetX() * 0.6 + tiltErrorX * rightingStrength;
     const newAngZ = currentAngVel.GetZ() * 0.6 + tiltErrorZ * rightingStrength;
 
+    Enemy._scratchVec3.Set(newAngX, newAngY, newAngZ);
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newAngX, newAngY, newAngZ)
+        Enemy._scratchVec3
     );
 
     let throttle = 0;
@@ -213,9 +239,10 @@ export class Enemy {
     const verticalAssist = forward[1] * this.velocity;
     const newVelY = currentJoltVel.GetY() * (Math.abs(verticalAssist) > 0.1 ? 0.5 : 1.0) + verticalAssist;
 
+    Enemy._scratchVec3.Set(newVelX, newVelY, newVelZ);
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newVelX, newVelY, newVelZ)
+        Enemy._scratchVec3
     );
     
     let didShoot = false;
