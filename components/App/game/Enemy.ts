@@ -88,11 +88,11 @@ export class Enemy {
 
     this.physicsBody = gfx3JoltManager.addBox({
       width: 3.45, height: 1.2, depth: 3.6,
-      x, y: y + 2.0, z,
+      x, y: y + 1.0, z,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
-          mAngularDamping: 15.0, 
+          mAngularDamping: 1.0, 
           mMassPropertiesOverride: 10000.0,
       }
     });

@@ -63,11 +63,11 @@ export class Tank {
 
     this.physicsBody = gfx3JoltManager.addBox({
       width: 3.45, height: 1.2, depth: 3.6,
-      x: 0, y: 35.0, z: 0,
+      x: 0, y: 5.0, z: 0,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
-          mAngularDamping: 15.0, 
+          mAngularDamping: 1.0, 
           mMassPropertiesOverride: 10000.0,
       }
     });
@@ -104,7 +104,7 @@ export class Tank {
   update(ts: number, moveDir: { x: number, y: number }, fireNormal: boolean, fireGrenade: boolean, aimYaw: number = 0, aimPitch: number = 0): { normal: boolean, grenade: boolean, muzzlePos: vec3, muzzleDir: vec3 } {
     const moveSpeed = 16.0;
     const reverseSpeed = 8.0;
-    const rotSpeed = 70 * (Math.PI / 180); // 70 deg/sec (much more realistic tank turning speed)
+    const rotSpeed = 100 * (Math.PI / 180); // 100 deg/sec
 
     let didShootNormal = false;
     let didShootGrenade = false;
@@ -169,12 +169,12 @@ export class Tank {
     const tiltErrorZ = currentUpVec[0];  
 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
-    // Use slower interpolation for angular velocity to create heavy rotational momentum
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-6.0 * (ts / 1000)));
+    // Faster interpolation for better snap-to-command
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-12.0 * (ts / 1000)));
     
     // Dampen physical bouncy rotation, apply gentle righting force
-    const newAngX = currentAngVel.GetX() * 0.9 + tiltErrorX * 5.0;
-    const newAngZ = currentAngVel.GetZ() * 0.9 + tiltErrorZ * 5.0;
+    const newAngX = currentAngVel.GetX() * 0.8 + tiltErrorX * 8.0;
+    const newAngZ = currentAngVel.GetZ() * 0.8 + tiltErrorZ * 8.0;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
@@ -207,7 +207,7 @@ export class Tank {
     
     // Teleport if out of bounds
     if (pos.GetY() < -20.0) {
-        const resetPos = new Gfx3Jolt.RVec3(0, 35.0, 0);
+        const resetPos = new Gfx3Jolt.RVec3(0, 5.0, 0);
         gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), resetPos, Gfx3Jolt.EActivation_Activate);
         gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), new Gfx3Jolt.Vec3(0, 0, 0));
     }

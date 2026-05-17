@@ -117,7 +117,7 @@ export class GameScreen extends Screen {
        const x = (Math.random() - 0.5) * 120;
        const z = (Math.random() - 0.5) * 120;
        if (Math.abs(x) < 25 && Math.abs(z) < 25) continue;
-       this.enemies.push(new Enemy(x, 35, z));
+       this.enemies.push(new Enemy(x, 5, z));
     }
 
     if (typeof window !== 'undefined') {

@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 10:05]**: Fixed the "falling from sky" bug by reducing initial spawn height from 35.0 to 5.0. Drastically improved A/D steering responsiveness by removing excessive angular damping (reduced from 15.0 to 1.0) and increasing rotation speed for a better playfeel while maintaining weight.
 -   **[2026-05-17 10:00]**: Fixed movement & rotation bug where tank physics would get stuck, bounce uncontrollably off geometry, and refuse to rotate on hills. Removed the hard override of physical pitch/roll angular velocity, now allowing the Jolt physics engine to naturally resolve terrain slopes. Re-applied acceleration 'chassis tilt' safely to the visual mesh instead of injecting literal rotation forces.
 -   **[2026-05-17 09:50]**: Adjusted tank physics for weight and realistic steering. Modified `Tank.ts` to heavily dampen rotational angular velocity interpolation, making turning feel more heavy and tank-like. Reduced rotation speed to 70 deg/sec. Adjusted braking acceleration. Added camera zoom (mouse wheel) in `GameScreen.ts` and similarly heavy physics to enemy tanks.
 -   **[2026-05-17 09:39]**: Implemented classic vehicle steering for the `Tank` and `Enemy` objects where movement inputs (W/S) are relative to the tank's hull orientation instead of the camera, and steering (A/D) directly rotates the hull. Perfected track friction by isolating and heavily damping lateral velocity (drifting) while keeping forward acceleration smooth.
