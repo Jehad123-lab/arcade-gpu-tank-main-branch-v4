@@ -37,10 +37,15 @@ export class Tank {
   hp: number = 100;
   recoil: number = 0;
 
+  private static _scratchRVec3: Jolt.RVec3;
+  private static _scratchVec3: Jolt.Vec3;
+
   static initHPMeshes() {
     if (Tank.hpInit) return;
     Tank.hpGreen = createUnitBoxMesh([0, 1, 0]);
     Tank.hpRed = createUnitBoxMesh([1, 0, 0]);
+    Tank._scratchRVec3 = new Gfx3Jolt.RVec3(0, 0, 0);
+    Tank._scratchVec3 = new Gfx3Jolt.Vec3(0, 0, 0);
     Tank.hpInit = true;
   }
   
@@ -138,10 +143,16 @@ export class Tank {
     this.rotation = currentYaw; // Sync for other reads
 
     const throttle = (Math.abs(moveDir.y) < 0.05) ? 0 : moveDir.y;
-    const turnInput = (Math.abs(moveDir.x) < 0.05) ? 0 : moveDir.x; // Strict deadzone to prevent veering
+    let turnInput = (Math.abs(moveDir.x) < 0.05) ? 0 : moveDir.x; // Strict deadzone to prevent veering
+
+    // Standard tank controls: A/D rotates the chassis always in the same direction relative to front
+    // But we maintain the inversion for backward movement as it's more intuitive for most players (car style)
+    if (throttle < 0) {
+        turnInput = -turnInput;
+    }
 
     targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
-    targetAngularVelY = -turnInput * (rotSpeed * (throttle !== 0 ? 0.8 : 1.4)); // Buff turn-in-place speed
+    targetAngularVelY = -turnInput * (rotSpeed * (throttle !== 0 ? 1.0 : 1.4)); // Buff turn-in-place speed
 
     // Heavy physical braking & acceleration feel
     const isBraking = (throttle === 0 && Math.abs(this.velocity) > 0.1) || (throttle > 0 && this.velocity < -0.1) || (throttle < 0 && this.velocity > 0.1);
@@ -173,15 +184,19 @@ export class Tank {
     // 1.5 MANUAL VELOCITY DAMPING (Fixes "skating" and "drifting")
     const currentLinVel = this.physicsBody.body.GetLinearVelocity();
     const linDamping = 0.985; // Air/Ground resistance
-    const dampVec = new Gfx3Jolt.Vec3(currentLinVel.GetX() * linDamping, currentLinVel.GetY(), currentLinVel.GetZ() * linDamping);
-    gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), dampVec);
-    Gfx3Jolt.destroy(dampVec);
+    Tank._scratchVec3.Set(currentLinVel.GetX() * linDamping, currentLinVel.GetY(), currentLinVel.GetZ() * linDamping);
+    gfx3JoltManager.bodyInterface.SetLinearVelocity(
+        this.physicsBody.body.GetID(), 
+        Tank._scratchVec3
+    );
     
     // High angular damping to prevent spinning out when turning
     const angDamping = 0.95;
-    const dampAngVec = new Gfx3Jolt.Vec3(newAngX * angDamping, newAngY * angDamping, newAngZ * angDamping);
-    gfx3JoltManager.bodyInterface.SetAngularVelocity(this.physicsBody.body.GetID(), dampAngVec);
-    Gfx3Jolt.destroy(dampAngVec);
+    Tank._scratchVec3.Set(newAngX * angDamping, newAngY * angDamping, newAngZ * angDamping);
+    gfx3JoltManager.bodyInterface.SetAngularVelocity(
+        this.physicsBody.body.GetID(), 
+        Tank._scratchVec3
+    );
 
     // 3. STRICT LINEAR VELOCITY (Follow chassis forward)
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
@@ -197,20 +212,20 @@ export class Tank {
     const verticalAssist = forward[1] * this.velocity;
     const newVelY = currentJoltVel.GetY() * (Math.abs(verticalAssist) > 0.1 ? 0.5 : 1.0) + verticalAssist;
 
-    const joltLinVec = new Gfx3Jolt.Vec3(newVelX, newVelY, newVelZ);
-    gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), joltLinVec);
-    Gfx3Jolt.destroy(joltLinVec);
+    Tank._scratchVec3.Set(newVelX, newVelY, newVelZ);
+    gfx3JoltManager.bodyInterface.SetLinearVelocity(
+        this.physicsBody.body.GetID(), 
+        Tank._scratchVec3
+    );
 
     const pos = this.physicsBody.body.GetPosition();
     
     // Teleport if out of bounds
     if (pos.GetY() < -20.0) {
-        const resetPos = new Gfx3Jolt.RVec3(0, 2.0, 0);
-        gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), resetPos, Gfx3Jolt.EActivation_Activate);
-        Gfx3Jolt.destroy(resetPos);
-        const zeroVec = new Gfx3Jolt.Vec3(0, 0, 0);
-        gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), zeroVec);
-        Gfx3Jolt.destroy(zeroVec);
+        Tank._scratchRVec3.Set(0, 2.0, 0);
+        gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), Tank._scratchRVec3, Gfx3Jolt.EActivation_Activate);
+        Tank._scratchVec3.Set(0, 0, 0);
+        gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), Tank._scratchVec3);
     }
 
     // --- SYNC VISUALS ---
@@ -251,8 +266,8 @@ export class Tank {
     let yawDiff = ((aimYaw - this.turretYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
-    // Traverse feel - Fast for arcade action
-    const turretTraverseSpeed = 8.0;
+    // Traverse feel - Heavy and mechanical
+    const turretTraverseSpeed = 2.5;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);
@@ -262,11 +277,11 @@ export class Tank {
     const turretMatrix = UT.MAT4_MULTIPLY(turretPivotMatrix, localYawQ.toMatrix4());
     this.turret.enableManualTransform(turretMatrix);
  
-    // BARREL PITCH (Snappy)
+    // BARREL PITCH (Smoothed)
     const maxDepress = -0.15; 
     const maxElevate = 0.55;
     const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
-    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 15.0 * (ts / 1000));
+    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 4.0 * (ts / 1000));
     
     const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
 
