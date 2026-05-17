@@ -89,11 +89,11 @@ export class Enemy {
 
     this.physicsBody = gfx3JoltManager.addBox({
       width: 3.45, height: 1.2, depth: 3.6,
-      x, y: y + 1.0, z,
+      x, y: y + 0.5, z,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
-          mAngularDamping: 1.0, 
+          mAngularDamping: 2.0, 
           mMassPropertiesOverride: 10000.0,
       }
     });
@@ -170,13 +170,14 @@ export class Enemy {
     if (physYawDiff > Math.PI) physYawDiff -= Math.PI * 2;
     this.rotation = currentYaw + Math.max(-0.5, Math.min(0.5, physYawDiff));
     
-    const targetAngularVelY = physYawDiff * 15.0; 
+    const targetAngularVelY = physYawDiff * 12.0; 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-6.0 * (ts / 1000)));
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-12.0 * (ts / 1000)));
 
     // Dampen physical bouncy rotation, apply gentle righting force
-    const newAngX = currentAngVel.GetX() * 0.9 + tiltErrorX * 5.0;
-    const newAngZ = currentAngVel.GetZ() * 0.9 + tiltErrorZ * 5.0;
+    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 30.0) * 8.0;
+    const newAngX = currentAngVel.GetX() * 0.7 + tiltErrorX * rightingStrength;
+    const newAngZ = currentAngVel.GetZ() * 0.7 + tiltErrorZ * rightingStrength;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 

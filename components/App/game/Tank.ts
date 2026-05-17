@@ -63,11 +63,11 @@ export class Tank {
 
     this.physicsBody = gfx3JoltManager.addBox({
       width: 3.45, height: 1.2, depth: 3.6,
-      x: 0, y: 5.0, z: 0,
+      x: 0, y: 2.0, z: 0,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { 
-          mAngularDamping: 1.0, 
+          mAngularDamping: 2.0, 
           mMassPropertiesOverride: 10000.0,
       }
     });
@@ -138,7 +138,7 @@ export class Tank {
     this.rotation = currentYaw; // Sync for other reads
 
     const throttle = moveDir.y;
-    let turnInput = moveDir.x;
+    let turnInput = (Math.abs(moveDir.x) < 0.05) ? 0 : moveDir.x; // Strict deadzone to prevent veering
 
     // Invert left/right if reversing so the hull steers as expected
     if (throttle < 0) {
@@ -146,13 +146,10 @@ export class Tank {
     }
 
     targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
-    targetAngularVelY = -turnInput * rotSpeed;
+    targetAngularVelY = -turnInput * (rotSpeed * (throttle !== 0 ? 0.9 : 1.2)); // Buff turn-in-place speed
 
-    // Neutral steer (turn in place)
-    if (throttle === 0 && turnInput !== 0) {
-        targetAngularVelY = -turnInput * rotSpeed * 1.1;
-    }
-
+    // Neutral steer (turn in place) logic is now integrated above
+    
     // Heavy physical braking & acceleration feel
     const isBraking = (throttle === 0 && Math.abs(this.velocity) > 0.1) || (throttle > 0 && this.velocity < -0.1) || (throttle < 0 && this.velocity > 0.1);
     const accelRate = throttle !== 0 ? (isBraking ? -12.0 : -4.0) : -3.5;
@@ -172,11 +169,13 @@ export class Tank {
 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
     // Faster interpolation for better snap-to-command
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-12.0 * (ts / 1000)));
+    const rotationFixAlpha = throttle !== 0 ? 12.0 : 15.0;
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-rotationFixAlpha * (ts / 1000)));
     
-    // Dampen physical bouncy rotation, apply gentle righting force
-    const newAngX = currentAngVel.GetX() * 0.8 + tiltErrorX * 8.0;
-    const newAngZ = currentAngVel.GetZ() * 0.8 + tiltErrorZ * 8.0;
+    // Dampen physical bouncy rotation, apply gentle righting force if on flat ground
+    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 30.0) * 10.0;
+    const newAngX = currentAngVel.GetX() * 0.7 + tiltErrorX * rightingStrength;
+    const newAngZ = currentAngVel.GetZ() * 0.7 + tiltErrorZ * rightingStrength;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
@@ -209,7 +208,7 @@ export class Tank {
     
     // Teleport if out of bounds
     if (pos.GetY() < -20.0) {
-        const resetPos = new Gfx3Jolt.RVec3(0, 5.0, 0);
+        const resetPos = new Gfx3Jolt.RVec3(0, 2.0, 0);
         gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), resetPos, Gfx3Jolt.EActivation_Activate);
         gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), new Gfx3Jolt.Vec3(0, 0, 0));
     }
