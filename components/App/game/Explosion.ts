@@ -108,22 +108,31 @@ export class Explosion implements Poolable<Explosion> {
                 this.particles.push({ pos, vel, life, maxLife: life, colorIdx: Math.random() > 0.5 ? 2 : 3, scaleMultiplier: scaleMultiplier * (0.3 + Math.random()*0.5), type: 'debris' });
             }
             
-        } else if (type === 'trail') {
+        } else if (type === 'trail' || type === 'heavy_trail') {
             // Trail: small fire transitioning to smoke
-            const numParticles = 1;
+            const isHeavy = type === 'heavy_trail';
+            const numParticles = isHeavy ? 2 : 1;
             for (let i = 0; i < numParticles; i++) {
                 const pos: vec3 = [x + (Math.random() - 0.5) * 0.1, y + (Math.random() - 0.5) * 0.1, z + (Math.random() - 0.5) * 0.1];
-                let dirX = (Math.random() - 0.5) * 0.5;
-                let dirY = (Math.random() - 0.5) * 0.5;
-                let dirZ = (Math.random() - 0.5) * 0.5;
-                const vel = UT.VEC3_SCALE([dirX, dirY, dirZ], 0.5);
-                const life = 0.4 + Math.random() * 0.4;
-                // colorIdx 0 is fire/bright, 3 is smoke
+                let dirX = (Math.random() - 0.5) * 0.2;
+                let dirY = (Math.random() - 0.5) * 0.2;
+                let dirZ = (Math.random() - 0.5) * 0.2;
+                const vel = UT.VEC3_SCALE([dirX, dirY, dirZ], 0.2);
+                const life = (isHeavy ? 0.8 : 0.4) + Math.random() * 0.4;
+                
+                // colorIdx 0: Fire, 1: Flash, 2: Orange, 3: Smoke, 4: Dark Smoke
+                let color = 3; // Smoke
+                if (isHeavy) {
+                    color = Math.random() < 0.2 ? 0 : (Math.random() < 0.5 ? 3 : 4);
+                } else {
+                    color = Math.random() < 0.1 ? 0 : 3;
+                }
+
                 this.particles.push({ 
                     pos, vel, life, maxLife: life, 
-                    colorIdx: Math.random() < 0.3 ? 0 : 3, 
+                    colorIdx: color, 
                     scaleMultiplier: scaleMultiplier * (0.8 + Math.random() * 0.4), 
-                    type: Math.random() < 0.3 ? 'fire' : 'smoke' 
+                    type: color === 0 ? 'fire' : 'smoke' 
                 });
             }
         } else {

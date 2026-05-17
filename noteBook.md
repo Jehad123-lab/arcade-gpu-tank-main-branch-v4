@@ -14,6 +14,8 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-17 11:10]**: Fixed `TypeError: Cannot read properties of undefined (reading 'GetNarrowPhaseQuery')` in `GameScreen.ts` by correcting the physics system property name to `.system` and initializing the correct broadphase layer filter for camera occlusion raycasting.
+-   **[2026-05-17 11:08]**: Complete "Modern Tank Simulator" overhaul. Implemented camera occlusion (raycasting), tiered-zoom levels, and manual physics damping for a heavy kinetic feel. Enhanced projectile tracers with volumetric smoke and fire. Added military-grade UI overlays (fractal noise, scanlines, vignettes) for maximum immersion.
 -   **[2026-05-17 11:03]**: Fixed `ReferenceError: Cannot access 'speedAlpha' before initialization` in `GameScreen.ts`.
 -   **[2026-05-17 11:02]**: Overhauled camera system for a modern, cinematic feel. Implemented "Shoulder View" (offset to the right), dynamic FoV (45deg to 60deg based on speed), and speed-dependent camera noise. Added atmospheric fog and cinematic vignette/scanline overlays for improved depth and immersion. Refined sniper mode height and look-target logic for better precision while aiming.
 -   **[2026-05-17 10:56]**: Fixed `ReferenceError: forwardVecActual is not defined` in `Tank.ts` caused by an incomplete variable rename during the movement system overhaul.

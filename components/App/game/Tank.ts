@@ -176,9 +176,19 @@ export class Tank {
     const newAngX = currentAngVel.GetX() * 0.6 + tiltErrorX * rightingStrength;
     const newAngZ = currentAngVel.GetZ() * 0.6 + tiltErrorZ * rightingStrength;
 
+    // 1.5 MANUAL VELOCITY DAMPING (Fixes "skating" and "drifting")
+    const currentLinVel = this.physicsBody.body.GetLinearVelocity();
+    const linDamping = 0.985; // Air/Ground resistance
+    gfx3JoltManager.bodyInterface.SetLinearVelocity(
+        this.physicsBody.body.GetID(), 
+        new Gfx3Jolt.Vec3(currentLinVel.GetX() * linDamping, currentLinVel.GetY(), currentLinVel.GetZ() * linDamping)
+    );
+    
+    // High angular damping to prevent spinning out when turning
+    const angDamping = 0.95;
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newAngX, newAngY, newAngZ)
+        new Gfx3Jolt.Vec3(newAngX * angDamping, newAngY * angDamping, newAngZ * angDamping)
     );
 
     // 3. STRICT LINEAR VELOCITY (Follow chassis forward)
@@ -213,9 +223,10 @@ export class Tank {
     const origin: vec3 = [pos.GetX(), pos.GetY() - 0.15, pos.GetZ()];
 
     // RECOIL CALCULATION
-    const recoilImpact = this.recoil > 0 ? Math.sin(Date.now() * 0.1) * this.recoil * 0.02 : 0;
-    const bodyRecoilOffset = this.recoil > 0 ? this.recoil * -0.2 : 0; // Push back effect
+    const recoilImpact = this.recoil > 0 ? Math.sin(Date.now() * 10) * this.recoil * 0.05 : 0; // High frequency jitter
+    const bodyRecoilOffset = this.recoil > 0 ? this.recoil * -0.5 : 0; // Push back effect
     const recoilQ = Quaternion.createFromEuler(0, recoilImpact, 0, 'YXZ');
+    
     const tiltQ = Quaternion.createFromEuler(this.chassisTilt, 0, 0, 'YXZ');
     
     // Apply tilt THEN recoil

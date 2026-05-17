@@ -145,14 +145,20 @@ export class GameScreen extends Screen {
 
   cameraAlpha: number = 0.1;
   isSniperMode: boolean = false;
-  targetCameraDistance: number = 28.0;
+  zoomLevel: number = 2; // 0: Close, 1: Mid, 2: Far
+  targetCameraDistance: number = 32.0;
   currentFov: number = (Math.PI / 180) * 45; // ~45 degrees
 
   handleGlobalWheel = (e: WheelEvent) => {
     if (inputManager.isPointerLockCaptured()) {
-       const step = 4.0;
-       this.targetCameraDistance += e.deltaY > 0 ? step : -step;
-       this.targetCameraDistance = Math.max(10, Math.min(60, this.targetCameraDistance));
+      if (e.deltaY > 0) {
+        this.zoomLevel = Math.min(2, this.zoomLevel + 1);
+      } else {
+        this.zoomLevel = Math.max(0, this.zoomLevel - 1);
+      }
+      
+      const distances = [14, 28, 42];
+      this.targetCameraDistance = distances[this.zoomLevel];
     }
   };
 
@@ -335,12 +341,27 @@ export class GameScreen extends Screen {
     const shoulderX = this.isSniperMode ? 0 : 2.0; 
     const idealOffset = rotQ.rotateVector([shoulderX, 0, this.cameraDistance]);
     
-    const idealPos: vec3 = [
+    let idealPos: vec3 = [
         playerPos[0] + idealOffset[0],
         playerPos[1] + idealOffset[1] + (this.isSniperMode ? 1.5 : 2.8), 
         playerPos[2] + idealOffset[2]
     ];
     
+    // 4. CAMERA OCCLUSION (Raycasting to prevent wall clipping)
+    const rayStart = new Gfx3Jolt.RVec3(playerPos[0], playerPos[1] + 1.5, playerPos[2]);
+    const rayDir = new Gfx3Jolt.Vec3(idealPos[0] - playerPos[0], idealPos[1] - (playerPos[1] + 1.5), idealPos[2] - playerPos[2]);
+    const ray = new Gfx3Jolt.RayCast(rayStart, rayDir);
+    const hit = gfx3JoltManager.system.GetNarrowPhaseQuery().CastRay(ray, new Gfx3Jolt.RayCastSettings(), new Gfx3Jolt.SpecifiedBroadPhaseLayerFilter(new Gfx3Jolt.BroadPhaseLayer(0)), new Gfx3Jolt.SpecifiedObjectLayerFilter(JOLT_LAYER_NON_MOVING));
+    
+    if (hit.mFraction < 1.0) {
+        const hitDist = hit.mFraction * 0.9; // Pull back slightly from the hit
+        idealPos = [
+            playerPos[0] + rayDir.GetX() * hitDist,
+            playerPos[1] + 1.5 + rayDir.GetY() * hitDist,
+            playerPos[2] + rayDir.GetZ() * hitDist
+        ];
+    }
+
     // Prevent camera from going under ground
     if (idealPos[1] < 1.25) {
         idealPos[1] = 1.25;
@@ -507,12 +528,14 @@ export class GameScreen extends Screen {
         continue;
       }
       
-      if (p.life < 4.9 && Math.random() < 0.4) {
+      if (p.life < 4.98) {
           const exp = this.explosionPool.acquire() as Explosion;
           if (exp) {
-              const trailColor: [number, number, number] = p.type === ProjectileType.GRENADE ? [0.6, 0.6, 0.6] : [1.0, 0.8, 0.5];
-              const trailScale = p.type === ProjectileType.GRENADE ? 1.5 : 0.6;
-              exp.reset(pPos3[0], pPos3[1], pPos3[2], trailColor, undefined, trailScale, 'trail');
+              const isGrenade = p.type === ProjectileType.GRENADE;
+              const trailColor: [number, number, number] = isGrenade ? [0.2, 0.2, 0.21] : [1.0, 0.95, 0.7];
+              const mode = isGrenade ? 'heavy_trail' : 'trail';
+              const trailScale = isGrenade ? 2.5 : 0.8;
+              exp.reset(pPos3[0], pPos3[1], pPos3[2], trailColor, undefined, trailScale, mode);
               this.explosions.push(exp);
           }
       }

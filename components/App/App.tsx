@@ -250,18 +250,27 @@ const App = () => {
             <div style={{
                 position: 'absolute',
                 inset: 0,
-                background: 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%)',
+                background: 'radial-gradient(circle, transparent 20%, rgba(0,0,0,0.5) 100%)',
                 pointerEvents: 'none',
                 zIndex: 5
             }} />
             <div style={{
                 position: 'absolute',
                 inset: 0,
-                backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03))',
-                backgroundSize: '100% 3px, 3px 100%',
+                backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.005), rgba(0, 0, 255, 0.01))',
+                backgroundSize: '100% 2px, 2px 100%',
                 pointerEvents: 'none',
                 zIndex: 6,
-                opacity: 0.2
+                opacity: 0.3
+            }} />
+            {/* NOISE OVERLAY */}
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                opacity: 0.04,
+                pointerEvents: 'none',
+                zIndex: 7
             }} />
             <AnimatePresence>
                 {!isReady && (
