@@ -102,9 +102,9 @@ export class Tank {
    * Updates physics and syncs mesh transforms.
    */
   update(ts: number, moveDir: { x: number, y: number }, fireNormal: boolean, fireGrenade: boolean, aimYaw: number = 0, aimPitch: number = 0): { normal: boolean, grenade: boolean, muzzlePos: vec3, muzzleDir: vec3 } {
-    const moveSpeed = 16.0;
-    const reverseSpeed = 8.0;
-    const rotSpeed = 100 * (Math.PI / 180); // 100 deg/sec
+    const moveSpeed = 24.0;
+    const reverseSpeed = 12.0;
+    const rotSpeed = 110 * (Math.PI / 180); // 110 deg/sec
 
     let didShootNormal = false;
     let didShootGrenade = false;
@@ -115,16 +115,16 @@ export class Tank {
       this.recoil = 1.0; 
     }
 
-    if (fireGrenade && this.shellRecoil <= 0 && this.grenadeRecoil <= 0) {
+    if (fireGrenade && this.grenadeRecoil <= 0) {
       this.grenadeRecoil = 1.0;
       didShootGrenade = true;
-      this.recoil = 1.6; 
+      this.recoil = 1.8; 
     }
 
-    this.shellRecoil -= (ts / 1000) * 5; 
+    this.shellRecoil -= (ts / 1000) * 4.5; 
     if (this.shellRecoil < 0) this.shellRecoil = 0;
 
-    this.grenadeRecoil -= (ts / 1000) * 2;
+    this.grenadeRecoil -= (ts / 1000) * 1.5;
     if (this.grenadeRecoil < 0) this.grenadeRecoil = 0;
     
     // 1. CHASSIS MOVEMENT
@@ -150,11 +150,12 @@ export class Tank {
 
     // Neutral steer (turn in place)
     if (throttle === 0 && turnInput !== 0) {
-        targetAngularVelY = -turnInput * rotSpeed * 0.8;
+        targetAngularVelY = -turnInput * rotSpeed * 1.1;
     }
 
-    const isBraking = (throttle === 0 && this.velocity !== 0) || (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
-    const accelRate = throttle !== 0 ? (isBraking ? -8.0 : -3.0) : -4.0;
+    // Heavy physical braking & acceleration feel
+    const isBraking = (throttle === 0 && Math.abs(this.velocity) > 0.1) || (throttle > 0 && this.velocity < -0.1) || (throttle < 0 && this.velocity > 0.1);
+    const accelRate = throttle !== 0 ? (isBraking ? -12.0 : -4.0) : -3.5;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
@@ -249,8 +250,8 @@ export class Tank {
     let yawDiff = ((aimYaw - this.turretYaw) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     
-    // Traverse feel
-    const turretTraverseSpeed = 8.0;
+    // Traverse feel - Snappy but weighted
+    const turretTraverseSpeed = 12.0;
     this.turretYaw += yawDiff * turretTraverseSpeed * (ts / 1000);
     
     const localYaw = (this.turretYaw - currentYaw);
@@ -262,13 +263,13 @@ export class Tank {
  
     // BARREL PITCH (Smoothed)
     const maxDepress = -0.15; 
-    const maxElevate = 0.5;
+    const maxElevate = 0.55;
     const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
-    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 12.0 * (ts / 1000));
+    this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 15.0 * (ts / 1000));
     
     const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
 
-    const barrelRecoilVis = this.shellRecoil > 0 ? this.shellRecoil * 0.8 : 0;
+    const barrelRecoilVis = Math.max(this.shellRecoil * 1.2, this.grenadeRecoil * 0.5);
     const barrelPivotMatrix = UT.MAT4_MULTIPLY(turretMatrix, UT.MAT4_TRANSLATE(0, 0.1, -1.2 + barrelRecoilVis));
     const barrelMatrix = UT.MAT4_MULTIPLY(barrelPivotMatrix, pitchQ.toMatrix4());
     this.barrel.enableManualTransform(barrelMatrix);

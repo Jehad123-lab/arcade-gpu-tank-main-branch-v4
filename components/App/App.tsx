@@ -184,6 +184,7 @@ const App = () => {
     const [isReady, setIsReady] = useState(false);
     const [enemyCount, setEnemyCount] = useState(3);
     const [playerHp, setPlayerHp] = useState(100);
+    const [isZoomed, setIsZoomed] = useState(false);
     const gameScreenRef = useRef<GameScreen | null>(null);
     const { width } = useWindowSize();
     
@@ -213,8 +214,9 @@ const App = () => {
                 if (gameScreenRef.current.tank) {
                     setPlayerHp(gameScreenRef.current.tank.hp);
                 }
+                setIsZoomed(gameScreenRef.current.isSniperMode);
             }
-        }, 500);
+        }, 100);
 
         return () => {
             document.removeEventListener('contextmenu', handleContextMenu);
@@ -392,22 +394,43 @@ const App = () => {
                 justifyContent: 'center',
                 pointerEvents: 'none',
             }}>
-                <div style={{
-                    width: '40px',
-                    height: '40px',
-                    border: `1px solid ${Tokens.colors.contentDim}`,
-                    borderRadius: '2px',
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
+                <motion.div 
+                    animate={{ 
+                        scale: isZoomed ? 1.5 : 1.0,
+                        opacity: isZoomed ? 1.0 : 0.7 
+                    }}
+                    style={{
+                        width: '40px',
+                        height: '40px',
+                        border: `1px solid ${isZoomed ? Tokens.colors.accent : Tokens.colors.contentDim}`,
+                        borderRadius: '2px',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}
+                >
                     <div style={{ position: 'absolute', top: '-10px', left: '50%', width: '1px', height: '6px', background: Tokens.colors.accent }} />
                     <div style={{ position: 'absolute', bottom: '-10px', left: '50%', width: '1px', height: '6px', background: Tokens.colors.accent }} />
                     <div style={{ position: 'absolute', left: '-10px', top: '50%', width: '6px', height: '1px', background: Tokens.colors.accent }} />
                     <div style={{ position: 'absolute', right: '-10px', top: '50%', width: '6px', height: '1px', background: Tokens.colors.accent }} />
                     <div style={{ width: '4px', height: '4px', backgroundColor: Tokens.colors.content, borderRadius: '100%' }} />
-                </div>
+                    
+                    {isZoomed && (
+                        <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            style={{ 
+                                position: 'absolute',
+                                width: '120%',
+                                height: '120%',
+                                border: `1px solid ${Tokens.colors.accent}`,
+                                opacity: 0.3,
+                                borderRadius: '100%'
+                            }} 
+                        />
+                    )}
+                </motion.div>
             </div>
 
             {/* BOTTOM CONTROLS */}

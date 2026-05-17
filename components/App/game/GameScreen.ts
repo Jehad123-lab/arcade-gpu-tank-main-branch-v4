@@ -141,10 +141,27 @@ export class GameScreen extends Screen {
     }
   };
 
+  cameraAlpha: number = 0.1;
+  isSniperMode: boolean = false;
+  targetCameraDistance: number = 28.0;
+
   handleGlobalWheel = (e: WheelEvent) => {
     if (inputManager.isPointerLockCaptured()) {
-       this.cameraDistance += e.deltaY > 0 ? 3.0 : -3.0;
-       this.cameraDistance = Math.max(10, Math.min(60, this.cameraDistance));
+       const step = 4.0;
+       this.targetCameraDistance += e.deltaY > 0 ? step : -step;
+       this.targetCameraDistance = Math.max(10, Math.min(60, this.targetCameraDistance));
+    }
+  };
+
+  handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 2) { // Right Click
+        this.isSniperMode = true;
+    }
+  };
+
+  handleMouseUp = (e: MouseEvent) => {
+    if (e.button === 2) {
+        this.isSniperMode = false;
     }
   };
 
@@ -154,6 +171,9 @@ export class GameScreen extends Screen {
     
     if (typeof window !== 'undefined') {
        window.addEventListener('wheel', this.handleGlobalWheel, { passive: true });
+       window.addEventListener('mousedown', this.handleMouseDown);
+       window.addEventListener('mouseup', this.handleMouseUp);
+       window.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     
     gfx3PostRenderer.setParam(PostParam.PIXELATION_ENABLED, 0.0);
@@ -294,11 +314,16 @@ export class GameScreen extends Screen {
     }
 
 
-    const rotQ = Quaternion.createFromEuler(this.cameraYaw, this.cameraPitch, 0, 'YXZ');
+    const finalTargetDist = this.isSniperMode ? 8.0 : this.targetCameraDistance;
+    this.cameraDistance = UT.LERP(this.cameraDistance, finalTargetDist, 1.0 - Math.exp(-8.0 * (ts / 1000)));
+
+    const cameraPitchActual = this.isSniperMode ? Math.max(this.cameraPitch, -0.1) : this.cameraPitch; 
+
+    const rotQ = Quaternion.createFromEuler(this.cameraYaw, cameraPitchActual, 0, 'YXZ');
     const idealOffset = rotQ.rotateVector([0, 0, this.cameraDistance]);
     const idealPos: vec3 = [
         playerPos[0] + idealOffset[0],
-        playerPos[1] + 3.5 + idealOffset[1], 
+        playerPos[1] + idealOffset[1] + 1.5,
         playerPos[2] + idealOffset[2]
     ];
     
