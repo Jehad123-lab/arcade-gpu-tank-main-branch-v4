@@ -242,7 +242,7 @@ export class Tank {
     const targetPitch = Math.max(maxDepress, Math.min(maxElevate, aimPitch));
     this.barrelPitch = UT.LERP(this.barrelPitch, targetPitch, 12.0 * (ts / 1000));
     
-    const pitchQ = Quaternion.createFromEuler(0, this.barrelPitch, 0, 'YXZ');
+    const pitchQ = Quaternion.createFromEuler(0, -this.barrelPitch, 0, 'YXZ');
 
     const barrelRecoilVis = this.shellRecoil > 0 ? this.shellRecoil * 0.8 : 0;
     const barrelPivotMatrix = UT.MAT4_MULTIPLY(turretMatrix, UT.MAT4_TRANSLATE(0, 0.1, -1.2 + barrelRecoilVis));
