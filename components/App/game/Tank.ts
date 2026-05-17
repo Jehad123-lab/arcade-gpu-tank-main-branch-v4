@@ -137,22 +137,21 @@ export class Tank {
     const currentYaw = Math.atan2(-currentForward[0], -currentForward[2]);
     this.rotation = currentYaw; // Sync for other reads
 
-    const throttle = moveDir.y;
+    const throttle = (Math.abs(moveDir.y) < 0.05) ? 0 : moveDir.y;
     let turnInput = (Math.abs(moveDir.x) < 0.05) ? 0 : moveDir.x; // Strict deadzone to prevent veering
 
-    // Invert left/right if reversing so the hull steers as expected
+    // Standard tank controls: A/D rotates the chassis always in the same direction relative to front
+    // But we maintain the inversion for backward movement as it's more intuitive for most players (car style)
     if (throttle < 0) {
         turnInput = -turnInput;
     }
 
     targetVelocity = throttle > 0 ? throttle * moveSpeed : throttle * reverseSpeed;
-    targetAngularVelY = -turnInput * (rotSpeed * (throttle !== 0 ? 0.9 : 1.2)); // Buff turn-in-place speed
+    targetAngularVelY = -turnInput * (rotSpeed * (throttle !== 0 ? 1.0 : 1.4)); // Buff turn-in-place speed
 
-    // Neutral steer (turn in place) logic is now integrated above
-    
     // Heavy physical braking & acceleration feel
     const isBraking = (throttle === 0 && Math.abs(this.velocity) > 0.1) || (throttle > 0 && this.velocity < -0.1) || (throttle < 0 && this.velocity > 0.1);
-    const accelRate = throttle !== 0 ? (isBraking ? -12.0 : -4.0) : -3.5;
+    const accelRate = throttle !== 0 ? (isBraking ? -15.0 : -6.0) : -8.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
@@ -160,8 +159,8 @@ export class Tank {
     
     // 2. CHASSIS TILT (Acceleration-based lurch)
     const acceleration = (targetVelocity - this.velocity);
-    const targetTilt = -acceleration * 0.15 * (Math.PI / 180); // Lurch proportional to accel
-    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 4.0 * (ts / 1000));
+    const targetTilt = -acceleration * 0.12 * (Math.PI / 180); // Lurch proportional to accel
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 5.0 * (ts / 1000));
     
     // Softly upright the tank visual-only tilt
     const tiltErrorX = -currentUpVec[2]; 
@@ -169,39 +168,36 @@ export class Tank {
 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
     // Faster interpolation for better snap-to-command
-    const rotationFixAlpha = throttle !== 0 ? 12.0 : 15.0;
+    const rotationFixAlpha = throttle !== 0 ? 15.0 : 20.0;
     const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-rotationFixAlpha * (ts / 1000)));
     
     // Dampen physical bouncy rotation, apply gentle righting force if on flat ground
-    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 30.0) * 10.0;
-    const newAngX = currentAngVel.GetX() * 0.7 + tiltErrorX * rightingStrength;
-    const newAngZ = currentAngVel.GetZ() * 0.7 + tiltErrorZ * rightingStrength;
+    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 40.0) * 12.0;
+    const newAngX = currentAngVel.GetX() * 0.6 + tiltErrorX * rightingStrength;
+    const newAngZ = currentAngVel.GetZ() * 0.6 + tiltErrorZ * rightingStrength;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
         new Gfx3Jolt.Vec3(newAngX, newAngY, newAngZ)
     );
 
-    const uprightQuat = Quaternion.createFromEuler(currentYaw, 0, 0, 'YXZ');
-    const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]); 
-    const sideVec = uprightQuat.rotateVector([1, 0, 0]);
-    
+    // 3. STRICT LINEAR VELOCITY (Follow chassis forward)
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
+    const forward = currentQuat.rotateVector([0, 0, -1]); // Chassis forward vector (includes pitch)
     
-    // Decompose horizontal velocity into lateral and longitudinal
-    const forwardVel = forwardVecActual[0] * currentJoltVel.GetX() + forwardVecActual[2] * currentJoltVel.GetZ();
-    const lateralVel = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
+    // Project speed onto chassis forward
+    // On flat ground forward.y is ~0. On slopes it helps climb.
+    const newVelX = forward[0] * this.velocity;
+    const newVelZ = forward[2] * this.velocity;
     
-    const lateralDamping = Math.pow(0.001, ts / 1000); 
-    const newLateral = lateralVel * lateralDamping;
-    const newForward = UT.LERP(forwardVel, this.velocity, 1.0 - Math.exp(-12.0 * (ts / 1000)));
+    // Allow physics to handle vertical motion but add a slight "climb" assist boost from the engine speed
+    // This ensures the tank doesn't just stop at ramps.
+    const verticalAssist = forward[1] * this.velocity;
+    const newVelY = currentJoltVel.GetY() * (Math.abs(verticalAssist) > 0.1 ? 0.5 : 1.0) + verticalAssist;
 
-    const newVelX = forwardVecActual[0] * newForward + sideVec[0] * newLateral;
-    const newVelZ = forwardVecActual[2] * newForward + sideVec[2] * newLateral;
-    
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newVelX, currentJoltVel.GetY(), newVelZ)
+        new Gfx3Jolt.Vec3(newVelX, newVelY, newVelZ)
     );
 
     const pos = this.physicsBody.body.GetPosition();
@@ -227,9 +223,9 @@ export class Tank {
 
     // Apply recoil translation to the matrix
     const recoiledOrigin: vec3 = [
-        origin[0] + forwardVecActual[0] * bodyRecoilOffset,
+        origin[0] + forward[0] * bodyRecoilOffset,
         origin[1],
-        origin[2] + forwardVecActual[2] * bodyRecoilOffset
+        origin[2] + forward[2] * bodyRecoilOffset
     ];
 
     const bodyMatrix = UT.MAT4_TRANSFORM(recoiledOrigin, [0, 0, 0], [1, 1, 1], finalVisualQ);

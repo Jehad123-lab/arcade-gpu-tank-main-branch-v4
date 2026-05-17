@@ -170,14 +170,14 @@ export class Enemy {
     if (physYawDiff > Math.PI) physYawDiff -= Math.PI * 2;
     this.rotation = currentYaw + Math.max(-0.5, Math.min(0.5, physYawDiff));
     
-    const targetAngularVelY = physYawDiff * 12.0; 
+    const targetAngularVelY = physYawDiff * 15.0; 
     const currentAngVel = this.physicsBody.body.GetAngularVelocity();
-    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-12.0 * (ts / 1000)));
+    const newAngY = UT.LERP(currentAngVel.GetY(), targetAngularVelY, 1.0 - Math.exp(-15.0 * (ts / 1000)));
 
     // Dampen physical bouncy rotation, apply gentle righting force
-    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 30.0) * 8.0;
-    const newAngX = currentAngVel.GetX() * 0.7 + tiltErrorX * rightingStrength;
-    const newAngZ = currentAngVel.GetZ() * 0.7 + tiltErrorZ * rightingStrength;
+    const rightingStrength = Math.max(0, 1.0 - Math.abs(this.velocity) / 30.0) * 10.0;
+    const newAngX = currentAngVel.GetX() * 0.6 + tiltErrorX * rightingStrength;
+    const newAngZ = currentAngVel.GetZ() * 0.6 + tiltErrorZ * rightingStrength;
 
     gfx3JoltManager.bodyInterface.SetAngularVelocity(
         this.physicsBody.body.GetID(), 
@@ -194,34 +194,28 @@ export class Enemy {
     const targetVelocity = throttle * speed;
     const accelInput = (targetVelocity - this.velocity);
     const targetTilt = -accelInput * 0.1 * (Math.PI / 180);
-    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 4.0 * (ts / 1000));
+    this.chassisTilt = UT.LERP(this.chassisTilt, targetTilt, 5.0 * (ts / 1000));
 
     const tiltQ = Quaternion.createFromEuler(this.chassisTilt, 0, 0, 'YXZ');
     this.visualQuat = currentQuat.mul(tiltQ.w, tiltQ.x, tiltQ.y, tiltQ.z);
 
     const isBraking = (throttle > 0 && this.velocity < 0) || (throttle < 0 && this.velocity > 0);
-    const accelRate = throttle !== 0 ? (isBraking ? -20.0 : -6.0) : -15.0;
+    const accelRate = throttle !== 0 ? (isBraking ? -20.0 : -8.0) : -12.0;
     const accelAlphaValue = 1.0 - Math.exp(accelRate * (ts / 1000));
     this.velocity = UT.LERP(this.velocity, targetVelocity, accelAlphaValue);
 
-    const forwardVecActual = uprightQuat.rotateVector([0, 0, -1]);
+    const forward = currentQuat.rotateVector([0, 0, -1]);
     const currentJoltVel = this.physicsBody.body.GetLinearVelocity();
-    const sideVec = uprightQuat.rotateVector([1, 0, 0]);
     
-    const forwardVel = forwardVecActual[0] * currentJoltVel.GetX() + forwardVecActual[2] * currentJoltVel.GetZ();
-    const lateralVel = sideVec[0] * currentJoltVel.GetX() + sideVec[2] * currentJoltVel.GetZ();
-    
-    // Strong lateral damping
-    const lateralDamping = Math.pow(0.001, ts / 1000);
-    const newLateral = lateralVel * lateralDamping;
-    const newForward = UT.LERP(forwardVel, this.velocity, 1.0 - Math.exp(-12.0 * (ts / 1000)));
-
-    const newVelX = forwardVecActual[0] * newForward + sideVec[0] * newLateral;
-    const newVelZ = forwardVecActual[2] * newForward + sideVec[2] * newLateral;
+    // Strict forward movement
+    const newVelX = forward[0] * this.velocity;
+    const newVelZ = forward[2] * this.velocity;
+    const verticalAssist = forward[1] * this.velocity;
+    const newVelY = currentJoltVel.GetY() * (Math.abs(verticalAssist) > 0.1 ? 0.5 : 1.0) + verticalAssist;
 
     gfx3JoltManager.bodyInterface.SetLinearVelocity(
         this.physicsBody.body.GetID(), 
-        new Gfx3Jolt.Vec3(newVelX, currentJoltVel.GetY(), newVelZ)
+        new Gfx3Jolt.Vec3(newVelX, newVelY, newVelZ)
     );
     
     let didShoot = false;
